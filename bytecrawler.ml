@@ -62,7 +62,7 @@ module Stack = struct
   let length s = s.size
 
   let set s n x =
-    s.tab.(n) <- x
+    s.tab.(s.size - 1 - n) <- x
 
   let to_string s f =
     let str = ref "" in
@@ -142,7 +142,7 @@ let rec string_of_value = function
   | Closure_rec (ptr,t,env,i) ->
     let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") ":" env) in
     let s = String.sub s 0 (max 0 (String.length s -1)) in
-    "<"^(string_of_value ptr)^s^">"
+    "<"^(string_of_value ptr)^"("^(string_of_int i)^")"^s^">"
 
 let size_of_value v =
   match v with
@@ -175,12 +175,13 @@ let print_state state level t =
 let rec ptr_of_value = function
   | Ptr x -> x
   | Closure (ptr,env) -> ptr_of_value ptr
-  | Closure_rec (ptr,_,_,_) -> ptr_of_value ptr
+  | Closure_rec (ptr,t,_,i) -> if i = 0 then ptr_of_value ptr else
+      t.(i-1)
   | _ -> failwith "not a ptr"
 
 let int_of_value = function
   | Int v -> v
-  | _ -> failwith "not a value"
+  | x -> failwith @@ (string_of_value x)^" : not an int"
 
 (* let ending_block a from = *)
 (*   let rec loop i = *)
@@ -210,14 +211,20 @@ let int_of_value = function
 (*   in *)
 (*   loop 0 [0] *)
 
+let env_of_closure env =
+  match env with
+  | Closure (_, blk) -> blk
+  | _ -> failwith "not a closure"
+
 exception Stop
 
 
 let rec interp_loop level bytecode state : unit =
   let inst = bytecode.(state.pc) in
   let next = { state with pc = state.pc + 1 } in
+  let level = max level 0 in
   print_state state level bytecode;
-  (* let _ = read_line () in *)
+  let _ = read_line () in
   match inst with
   | ACC0 -> let i = Stack.peek state.stack 0 in
     interp_loop level bytecode { next with acc = i }
@@ -348,32 +355,50 @@ let rec interp_loop level bytecode state : unit =
                                            env = state.acc ;
                                            extraArgs = 2 }
   | APPTERM (n, s)  ->
+    for i = 0 to n - 1 do
+      let arg = Stack.peek state.stack (n- i - 1) in
+      Stack.set state.stack (s - i - 1) arg
+    done;
     Stack.popn state.stack (s - n);
     let extraArgs = state.extraArgs + (n - 1) in
     let env = state.acc in
     interp_loop level bytecode { next with pc = ptr_of_value state.acc ;
                                            env = env ;
                                            extraArgs = extraArgs }
-  | APPTERM1 s ->
-    Stack.popn state.stack (s - 1);
+  | APPTERM1 n ->
+    let arg = Stack.top state.stack in
+    Stack.popn state.stack (n - 1);
+    (* Format.printf "---> %d <<<---" (int_of_value arg); *)
+    Stack.set state.stack 0 arg;
     let env = state.acc in
-    interp_loop (level-1) bytecode { next with pc = ptr_of_value state.acc ;
+    interp_loop level bytecode { next with pc = ptr_of_value state.acc ;
                                            env = env}
   | APPTERM2 s ->
+    let arg1 = Stack.top state.stack in
+    let arg2 = Stack.top state.stack in
     Stack.popn state.stack (s - 2);
+    Stack.set state.stack 0 arg1;
+    Stack.set state.stack 1 arg2;
     let env = state.acc in
     let extraArgs = state.extraArgs + 1 in
-    interp_loop (level-1) bytecode { next with pc = ptr_of_value state.acc;
+    interp_loop level bytecode { next with pc = ptr_of_value state.acc;
                                            env = env ; extraArgs =
                                                          extraArgs }
   | APPTERM3 s ->
-    Stack.popn state.stack (s - 3);
+     let arg1 = Stack.top state.stack in
+     let arg2 = Stack.top state.stack in
+     let arg3 = Stack.top state.stack in
+     Stack.popn state.stack (s - 3);
+     Stack.set state.stack 0 arg1;
+     Stack.set state.stack 1 arg2;
+     Stack.set state.stack 2 arg3;
     let extraArgs = state.extraArgs + 2 in
     let env = state.acc in
     interp_loop level bytecode { next with pc = ptr_of_value state.acc ;
                                            env = env ;
                                            extraArgs = extraArgs }
-  | RETURN n -> Stack.popn state.stack n;
+  | RETURN n ->
+    Stack.popn state.stack n;
     if (state.extraArgs = 0) then
       (
         let pc = ptr_of_value (Stack.pop state.stack) in
@@ -388,12 +413,14 @@ let rec interp_loop level bytecode state : unit =
       interp_loop level bytecode { next with pc; env ; extraArgs}
     )
   | RESTART ->
-    let n = size_of_value state.env - 2 in
+    let blk = env_of_closure state.env in
+    let n = Array.length blk - 1 in
+    Format.printf "--> %d" n;
     for i = n downto 1 do
-      Stack.push state.stack (field state.env i)
+      Stack.push state.stack blk.(i)
     done;
     let extraArgs = state.extraArgs + n in
-    let env =  field state.env 0 in
+    let env = blk.(0) in
     interp_loop level bytecode { next with env ; extraArgs}
   | GRAB n ->
     if state.extraArgs >= n then
@@ -401,16 +428,16 @@ let rec interp_loop level bytecode state : unit =
       interp_loop level bytecode { next with extraArgs = extraArgs }
     else
       let a = Array.make (state.extraArgs + 2) (state.acc) in
-      (* for i = 1 to state.extraArgs + 1 do *)
-      (*   a.(i) <- Stack.pop state.stack *)
-      (* done; *)
-      let acc = Closure (Ptr (state.pc - 3) , a) in
-      set_field state.acc 1 state.env;
-      for i = 0 to state.extraArgs do
-        set_field state.acc (i+2) (Stack.pop state.stack)
+      for i = 1 to state.extraArgs + 1 do
+        a.(i) <- Stack.pop state.stack
       done;
+      let acc = Closure (Ptr (state.pc - 1) , a) in
+      (* set_field state.acc 1 state.env; *)
+      (* for i = 0 to state.extraArgs do *)
+      (*   set_field state.acc (i+2) (Stack.pop state.stack) *)
+      (* done; *)
       let sp = state.trapSp + state.extraArgs + 1 in
-      let pc = int_of_value (Stack.pop state.stack) in
+      let pc = ptr_of_value (Stack.pop state.stack) in
       let env = Stack.pop state.stack in
       let extraArgs = int_of_value (Stack.pop state.stack) in
       interp_loop level bytecode { next with acc ; pc ; trapSp = sp;  env ; extraArgs }
@@ -588,19 +615,30 @@ let rec interp_loop level bytecode state : unit =
   | BRANCHIF ptr              ->
      begin
       match state.acc with
-      | Dummy ->
-        interp_loop (level+1) bytecode { next with pc = ptr };
-        interp_loop level bytecode next
-      | Int 1 -> interp_loop (level+1) bytecode { next with pc = ptr }
-      | _ -> interp_loop level bytecode next
-      (* | _ -> failwith "wrong accumulator" *)
+        | Dummy ->
+          begin
+          try
+            interp_loop (level+1) bytecode { next with pc = ptr };
+          with _ -> ();
+            try
+              interp_loop level bytecode next
+            with _ -> ()
+        end
+      | Int 0 -> interp_loop level bytecode next
+      | _ -> interp_loop (level+1) bytecode { next with pc = ptr }
     end
   | BRANCHIFNOT ptr           ->
     begin
       match state.acc with
       | Dummy ->
-        interp_loop (level+1) bytecode { next with pc = ptr };
-        interp_loop level bytecode next
+        begin
+          try
+            interp_loop (level+1) bytecode { next with pc = ptr }
+          with _ -> ();
+            try
+              interp_loop level bytecode next
+            with _ -> ();
+      end
       | Int 0 -> interp_loop (level+1) bytecode { next with pc = ptr }
       | _ -> interp_loop level bytecode next
       (* | _ -> failwith "wrong accumulator" *)
@@ -771,29 +809,78 @@ let rec interp_loop level bytecode state : unit =
   | GETMETHOD                 ->
     let acc = Dummy in
     interp_loop level bytecode { next with acc }
-  (* | BEQ (n, ptr)              -> *)
-  (*   let pc = if n = (int_of_value state.acc) then ptr else next.pc in *)
-  (*   interp_loop level bytecode { next with pc } *)
-  (* | BNEQ (n, ptr)             -> *)
-  (*   let pc = if n <> (int_of_value state.acc) then ptr else next.pc in *)
-  (*   interp_loop level bytecode { next with pc } *)
-  (* | BLTINT (n, ptr)           -> *)
-  (*   let pc = if n < int_of_value (state.acc) then *)
-  (*       ptr else next.pc *)
-  (*   in *)
-  (*   interp_loop level bytecode { next with pc } *)
-  (* | BLEINT (n, ptr)           -> *)
-  (*   let acc = int_of_value state.acc in *)
-  (*   let pc = if n <= acc then ptr else state.pc + 1 in *)
-  (*   interp_loop level bytecode { next with pc = pc } *)
-  (* | BGTINT (n, ptr)           -> *)
-  (*   let acc = int_of_value state.acc in *)
-  (*   let pc = if n > acc then ptr else state.pc + 1 in *)
-  (*   interp_loop level bytecode { next with pc = pc } *)
-  (* | BGEINT (n, ptr) -> *)
-  (*   let acc = Dummy in *)
-  (*   interp_loop (level+1) bytecode { next with pc = ptr }; *)
-  (*   interp_loop level bytecode next *)
+  | BEQ (n, ptr)              ->
+       begin
+      match state.acc with
+      | Dummy ->
+        interp_loop (level+1) bytecode { next with pc = ptr };
+        interp_loop level bytecode next
+      | Int v -> if n = v then
+          interp_loop (level+1) bytecode { next with pc = ptr }
+        else
+          interp_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BNEQ (n, ptr)             ->
+   begin
+      match state.acc with
+      | Dummy ->
+        interp_loop (level+1) bytecode { next with pc = ptr };
+        interp_loop level bytecode next
+      | Int v -> if n <> v then
+          interp_loop (level+1) bytecode { next with pc = ptr }
+        else
+          interp_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BLTINT (n, ptr)           ->
+       begin
+      match state.acc with
+      | Dummy ->
+        interp_loop (level+1) bytecode { next with pc = ptr };
+        interp_loop level bytecode next
+      | Int v -> if n < v then
+          interp_loop (level+1) bytecode { next with pc = ptr }
+        else
+          interp_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BLEINT (n, ptr)           ->
+     begin
+      match state.acc with
+      | Dummy ->
+        interp_loop (level+1) bytecode { next with pc = ptr };
+        interp_loop level bytecode next
+      | Int v -> if n <= v then
+          interp_loop (level+1) bytecode { next with pc = ptr }
+        else
+          interp_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BGTINT (n, ptr)           ->
+    begin
+      match state.acc with
+      | Dummy ->
+        interp_loop (level+1) bytecode { next with pc = ptr };
+        interp_loop level bytecode next
+      | Int v -> if n > v then
+          interp_loop (level+1) bytecode { next with pc = ptr }
+        else
+          interp_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BGEINT (n, ptr) ->
+        begin
+      match state.acc with
+      | Dummy ->
+        interp_loop (level+1) bytecode { next with pc = ptr };
+        interp_loop level bytecode next
+      | Int v -> if n >= v then
+          interp_loop (level+1) bytecode { next with pc = ptr }
+        else
+          interp_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
   | ULTINT ->
     let n = int_op (fun x y -> x + min_int) state.acc (Int 0) in
     let p = int_op (fun x y -> x + min_int) (Stack.pop state.stack) (Int 0) in
