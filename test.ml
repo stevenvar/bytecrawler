@@ -1,13 +1,5 @@
+let f x = x * 2
 
-(* let f x = x *)
+let g x = f (x + 1)
 
-(* let g a = a *)
-
-let f () =
-  let x = 245 in
-  fun () -> x
-
-let _ =
-  let k = f () in
-  k ()
-
+let _ = g 34
