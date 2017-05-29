@@ -675,27 +675,32 @@ let rec interp_loop level bytecode state : unit =
     let acc = Dummy in
     interp_loop level bytecode { next with acc = acc}
   | C_CALL2 idx ->
+    let acc = Dummy in
     ignore @@ Stack.pop state.stack;
-    interp_loop level bytecode next
+    interp_loop level bytecode { next with acc }
   | C_CALL3 idx ->
+    let acc = Dummy in
     ignore @@ Stack.pop state.stack;
     ignore @@ Stack.pop state.stack;
-    interp_loop level bytecode next
+    interp_loop level bytecode { next with acc }
   | C_CALL4 idx ->
+    let acc = Dummy in
     ignore @@ Stack.pop state.stack;
     ignore @@ Stack.pop state.stack;
     ignore @@ Stack.pop state.stack;
-    interp_loop level bytecode next
+    interp_loop level bytecode { next with acc }
   | C_CALL5 idx ->
+    let acc = Dummy in
     ignore @@ Stack.pop state.stack;
     ignore @@ Stack.pop state.stack;
     ignore @@ Stack.pop state.stack;
     ignore @@ Stack.pop state.stack;
-    interp_loop level bytecode next
+    interp_loop level bytecode { next with acc }
   | C_CALLN (narg, idx)       ->
+    let acc = Dummy in
     Stack.push state.stack state.acc;
     Stack.popn state.stack narg;
-    interp_loop level bytecode next
+    interp_loop level bytecode { next with acc }
   | RAISE | RERAISE | RAISE_NOTRACE -> raise Exit
   | CHECK_SIGNALS             ->
     interp_loop level bytecode next
