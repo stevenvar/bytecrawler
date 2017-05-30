@@ -7,15 +7,19 @@ all: $(TARGETS)
 bytecrawler: bytecrawler.ml
 	ocamlc $(FLAGS) obytelib.cma bytecrawler.ml -o bytecrawler
 
-test : bytecrawler test.ml
-	ocamlc test.ml -o test.byte
-	ocamlclean test.byte -o test.byte
-	./bytecrawler test.byte
+pervasives.cmo : tests/pervasive.ml
+	cd tests && ocamlc -c -nopervasives pervasive.ml
+
+test : bytecrawler tests/test.ml pervasives.cmo
+	cd tests && ocamlc -nopervasives test.ml -o test.byte
+	cd tests && ocamlclean test.byte -o test2.byte
+	cd tests && ../bytecrawler test2.byte
 
 clean:
 	@rm -f *~ $(TARGETS)
-	@rm test.byte
-	@rm *.cmo
-	@rm *.cmi
+	@rm tests/test2.byte
+	@rm tests/test.byte
+	@rm tests/*.cmo
+	@rm tests/*.cmi
 
 .PHONY: bytecrawler clean
