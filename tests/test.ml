@@ -10,5 +10,5 @@ let f x =
 let _ =
   let f = f 3939 in
   for i = 10 to 13 do
-    f 3
+    ignore @@ f 3
   done
