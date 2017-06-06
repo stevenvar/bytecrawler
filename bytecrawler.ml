@@ -1589,20 +1589,28 @@ let rec value_of_obytelib v =
   | _ -> failwith "not accepted"
 
 
-
-let () =
-  if Array.length Sys.argv -1 = 0 then
-    failwith ("usage : ./bytecrawler file.byte")
-  ;
-  let bytefile = Bytefile.read Sys.argv.(1) in
-  let data = bytefile.Bytefile.data in
-  let symb = bytefile.Bytefile.symb in
-  let primitives = bytefile.Bytefile.prim in
-  let bytecode = bytefile.Bytefile.code in
+let interp file =
+  let bytefile = Bytefile.read file in
+   let data = bytefile.Bytefile.data in
+   let symb = bytefile.Bytefile.symb in
+   let primitives = bytefile.Bytefile.prim in
+   let bytecode = bytefile.Bytefile.code in
+   let global = Array.map value_of_obytelib data in
   Printf.printf "\nGLOBAL =\n";
   Array.iteri (fun i s -> Format.printf "\t %d : %s\n" i (Value.to_string s)) data;
   OByteLib.Code.print data symb primitives stdout  bytecode;
-  let global = Array.map value_of_obytelib data in
   Array.iteri (fun i s -> Format.printf "\t %d : %s\n" i (string_of_value s)) global;
-  interp_loop 0 bytecode (new_state global);
+  interp_loop 0 bytecode (new_state global)
+
+let count_cycles f =
+  let bytefile = Bytefile.read f in
+  let data = bytefile.Bytefile.data in
+  let bytecode = bytefile.Bytefile.code in
+  let global = Array.map value_of_obytelib data in
   Printf.printf "Cycles : %d \n"  @@ count_loop 0 bytecode (new_state global)
+
+let () =
+   let speclist = [("-i", Arg.String (fun s -> interp s), "Enables interpreter mode")
+                   ]
+   in let usage_msg = "Options : "
+   in Arg.parse speclist (fun s -> count_cycles s) usage_msg;
