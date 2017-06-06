@@ -183,40 +183,692 @@ let int_of_value = function
   | Int v -> v
   | x -> failwith @@ (string_of_value x)^" : not an int"
 
-(* let ending_block a from = *)
-(*   let rec loop i = *)
-(*     let instr = a.(i) in *)
-(*     match instr with *)
-(*     | BRANCH ptr -> i *)
-(*     | RETURN _ -> i *)
-(*     | APPTERM1 _ -> i *)
-(*     | STOP -> i *)
-(*     | _ -> loop (i+1) *)
-(*   in *)
-(*   loop from *)
-
-(* let starting_blocks a = *)
-(*   let rec loop i l = *)
-(*     let instr = a.(i) in *)
-(*     if instr = STOP then l *)
-(*     else ( *)
-(*     let new_l = *)
-(*       match instr with *)
-(*       | BRANCH ptr -> ptr::l *)
-(*       | BRANCHIF ptr -> ptr::(i+1)::l *)
-(*       | CLOSURE (s,ptr) -> ptr::l *)
-(*       | _ -> l *)
-(*     in *)
-(*     loop (i+1) new_l ) *)
-(*   in *)
-(*   loop 0 [0] *)
-
 let env_of_closure env =
   match env with
   | Closure (_, blk) -> blk
   | _ -> failwith "not a closure"
 
 exception Stop
+
+
+let cycles inst = 1 (* TODO *)
+
+(* pas tail rec ... *)
+let rec count_loop level bytecode state : int =
+  let inst = bytecode.(state.pc) in
+  let next = { state with pc = state.pc + 1 } in
+  cycles inst +
+  match inst with
+  | ACC0 -> let i = Stack.peek state.stack 0 in
+    count_loop level bytecode { next with acc = i }
+  | ACC1 -> let i = Stack.peek state.stack 1 in
+    count_loop level bytecode { next with acc = i }
+  | ACC2 -> let i = Stack.peek state.stack 2 in
+    count_loop level bytecode { next with acc = i }
+  | ACC3 -> let i = Stack.peek state.stack 3 in
+    count_loop level bytecode { next with acc = i }
+  | ACC4 -> let i = Stack.peek state.stack 4 in
+    count_loop level bytecode { next with acc = i }
+  | ACC5 -> let i = Stack.peek state.stack 5 in
+    count_loop level bytecode { next with acc = i }
+  | ACC6 -> let i = Stack.peek state.stack 6 in
+    count_loop level bytecode { next with acc = i }
+  | ACC7 -> let i = Stack.peek state.stack 7 in
+    count_loop level bytecode { next with acc = i }
+  | ACC n -> let i = Stack.peek state.stack n in
+    count_loop level bytecode { next with acc = i }
+  | PUSH -> Stack.push state.stack state.acc;
+    count_loop level bytecode next
+  | PUSHACC0 ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack 0 in
+    count_loop level bytecode { next with acc = i }
+  | PUSHACC1 ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack 1 in
+    count_loop level bytecode { next with acc = i }
+  | PUSHACC2 ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack 2 in
+    count_loop level bytecode { next with acc = i }
+  | PUSHACC3 ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack 3 in
+    count_loop level bytecode { next with acc = i }
+  | PUSHACC4 ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack 4 in
+    count_loop level bytecode { next with acc = i }
+  | PUSHACC5 ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack 5 in
+    count_loop level bytecode { next with acc = i }
+  | PUSHACC6 ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack 6 in
+    count_loop level bytecode { next with acc = i }
+  | PUSHACC7 ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack 7 in
+    count_loop level bytecode { next with acc = i }
+  | PUSHACC n ->
+    Stack.push state.stack state.acc;
+    let i = Stack.peek state.stack n in
+    count_loop level bytecode { next with acc = i }
+  | POP n -> Stack.popn state.stack n;
+    count_loop level bytecode next
+  | ASSIGN n -> Stack.set state.stack n state.acc;
+    count_loop level bytecode { next with acc = Dummy }
+  | ENVACC1                   ->
+    count_loop level bytecode { next with acc = field state.env 1 }
+  | ENVACC2                   ->
+    count_loop level bytecode { next with acc = field state.env 2 }
+  | ENVACC3                   ->
+    count_loop level bytecode { next with acc = field state.env 3 }
+  | ENVACC4                   ->
+    count_loop level bytecode { next with acc = field state.env 4 }
+  | ENVACC n                   ->
+    count_loop level bytecode { next with acc = field state.env n }
+  | PUSHENVACC1               ->
+    Stack.push state.stack state.acc;
+    let acc = field state.env 1 in
+    count_loop level bytecode { next with acc = acc }
+  | PUSHENVACC2               ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = field state.env 2 }
+  | PUSHENVACC3               ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = field state.env 3 }
+  | PUSHENVACC4               ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = field state.env 4 }
+  | PUSHENVACC n               ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = field state.env n }
+  | PUSH_RETADDR ptr ->
+    Stack.push state.stack (Int state.extraArgs);
+    Stack.push state.stack state.env;
+    Stack.push state.stack (Ptr ptr);
+    count_loop level bytecode next
+  | APPLY n ->
+    count_loop (level+1) bytecode { next with pc = ptr_of_value state.acc ;
+                                           env = state.acc ;
+                                           extraArgs = n - 1 }
+  | APPLY1 ->
+    let arg = Stack.pop state.stack in
+    Stack.push state.stack (Int state.extraArgs);
+    Stack.push state.stack state.env;
+    Stack.push state.stack (Ptr (state.pc + 1));
+    Stack.push state.stack arg;
+    count_loop (level+1) bytecode { next with pc = ptr_of_value state.acc ;
+                                           env = state.acc ;
+                                           extraArgs = 0 }
+  | APPLY2 ->
+    let arg1 = Stack.pop state.stack in
+    let arg2 = Stack.pop state.stack in
+    Stack.push state.stack (Int state.extraArgs);
+    Stack.push state.stack state.env;
+    Stack.push state.stack (Ptr (state.pc + 1));
+    Stack.push state.stack arg2;
+    Stack.push state.stack arg1;
+    count_loop level bytecode { next with pc = ptr_of_value state.acc ;
+                                           env = state.acc ;
+                                           extraArgs = 1 }
+  | APPLY3 ->
+    let arg1 = Stack.pop state.stack in
+    let arg2 = Stack.pop state.stack in
+    let arg3 = Stack.pop state.stack in
+    Stack.push state.stack (Int state.extraArgs);
+    Stack.push state.stack state.env;
+    Stack.push state.stack (Ptr (state.pc + 1) );
+    Stack.push state.stack arg3;
+    Stack.push state.stack arg2;
+    Stack.push state.stack arg1;
+    count_loop level bytecode { next with pc = ptr_of_value state.acc ;
+                                           env = state.acc ;
+                                           extraArgs = 2 }
+  | APPTERM (n, s)  ->
+    for i = 0 to n - 1 do
+      let arg = Stack.peek state.stack (n- i - 1) in
+      Stack.set state.stack (s - i - 1) arg
+    done;
+    Stack.popn state.stack (s - n);
+    let extraArgs = state.extraArgs + (n - 1) in
+    let env = state.acc in
+    count_loop level bytecode { next with pc = ptr_of_value state.acc ;
+                                           env = env ;
+                                           extraArgs = extraArgs }
+  | APPTERM1 n ->
+    let arg = Stack.top state.stack in
+    Stack.popn state.stack (n - 1);
+    (* Format.printf "---> %d <<<---" (int_of_value arg); *)
+    Stack.set state.stack 0 arg;
+    let env = state.acc in
+    count_loop level bytecode { next with pc = ptr_of_value state.acc ;
+                                           env = env}
+  | APPTERM2 s ->
+    let arg1 = Stack.top state.stack in
+    let arg2 = Stack.top state.stack in
+    Stack.popn state.stack (s - 2);
+    Stack.set state.stack 0 arg1;
+    Stack.set state.stack 1 arg2;
+    let env = state.acc in
+    let extraArgs = state.extraArgs + 1 in
+    count_loop level bytecode { next with pc = ptr_of_value state.acc;
+                                           env = env ; extraArgs =
+                                                         extraArgs }
+  | APPTERM3 s ->
+     let arg1 = Stack.top state.stack in
+     let arg2 = Stack.top state.stack in
+     let arg3 = Stack.top state.stack in
+     Stack.popn state.stack (s - 3);
+     Stack.set state.stack 0 arg1;
+     Stack.set state.stack 1 arg2;
+     Stack.set state.stack 2 arg3;
+    let extraArgs = state.extraArgs + 2 in
+    let env = state.acc in
+    count_loop level bytecode { next with pc = ptr_of_value state.acc ;
+                                           env = env ;
+                                           extraArgs = extraArgs }
+  | RETURN n ->
+    Stack.popn state.stack n;
+    if (state.extraArgs = 0) then
+      (
+        let pc = ptr_of_value (Stack.pop state.stack) in
+        let env = Stack.pop state.stack in
+        let extraArgs = int_of_value (Stack.pop state.stack) in
+        count_loop (level-1) bytecode { next with pc ; env ; extraArgs}
+      )
+    else (
+      let pc = ptr_of_value state.acc in
+      let env = state.acc in
+      let extraArgs = state.extraArgs - 1 in
+      count_loop level bytecode { next with pc; env ; extraArgs}
+    )
+  | RESTART ->
+    let blk = env_of_closure state.env in
+    let n = Array.length blk - 1 in
+    Format.printf "--> %d" n;
+    for i = n downto 1 do
+      Stack.push state.stack blk.(i)
+    done;
+    let extraArgs = state.extraArgs + n in
+    let env = blk.(0) in
+    count_loop level bytecode { next with env ; extraArgs}
+  | GRAB n ->
+    if state.extraArgs >= n then
+      let extraArgs = state.extraArgs - n in
+      count_loop level bytecode { next with extraArgs = extraArgs }
+    else
+      let a = Array.make (state.extraArgs + 2) (state.acc) in
+      for i = 1 to state.extraArgs + 1 do
+        a.(i) <- Stack.pop state.stack
+      done;
+      let acc = Closure (Ptr (state.pc - 1) , a) in
+      (* set_field state.acc 1 state.env; *)
+      (* for i = 0 to state.extraArgs do *)
+      (*   set_field state.acc (i+2) (Stack.pop state.stack) *)
+      (* done; *)
+      let sp = state.trapSp + state.extraArgs + 1 in
+      let pc = ptr_of_value (Stack.pop state.stack) in
+      let env = Stack.pop state.stack in
+      let extraArgs = int_of_value (Stack.pop state.stack) in
+      count_loop level bytecode { next with acc ; pc ; trapSp = sp;  env ; extraArgs }
+  | CLOSURE (n,ptr) ->
+    let a = Array.make n (state.acc) in
+    for i = 1 to n - 1 do
+      a.(i) <- Stack.pop state.stack;
+    done;
+    count_loop level bytecode { next with acc = Closure(Ptr ptr,a) }
+  | CLOSUREREC (f, v, ptr, t)   ->
+    (* f = number of functions
+     * v = number of variables *)
+    (* if v > 0 then Stack.push state.stack state.acc; *)
+    let blk = Array.make v (state.acc) in
+    for i = 1 to v - 1 do
+      blk.(i) <- Stack.pop state.stack;
+    done;
+    let acc = Closure_rec (Ptr ptr,t,blk,0) in
+    Stack.push state.stack acc;
+    for i = 1 to Array.length t do
+      Stack.push state.stack (Block (0,[||]));
+    done;
+    count_loop level bytecode {next with acc = acc }
+  | OFFSETCLOSUREM2           ->
+    let acc = offsetclosure state.env (-2) in
+    count_loop level bytecode { next with acc}
+  | OFFSETCLOSURE0            ->
+    let acc = offsetclosure state.env 0 in
+    count_loop level bytecode { next with acc}
+  | OFFSETCLOSURE2            ->
+    let acc = offsetclosure state.env 2 in
+    count_loop level bytecode { next with acc}
+  | OFFSETCLOSURE n           ->
+    let acc = offsetclosure state.env n in
+    count_loop level bytecode { next with acc}
+  | PUSHOFFSETCLOSUREM2       ->
+    Stack.push state.stack state.acc;
+    let acc = offsetclosure state.env (-2) in
+    count_loop level bytecode { next with acc}
+  | PUSHOFFSETCLOSURE0        ->
+    Stack.push state.stack state.acc;
+    let acc = offsetclosure state.env 0 in
+    count_loop level bytecode { next with acc}
+  | PUSHOFFSETCLOSURE2        ->
+    Stack.push state.stack state.acc;
+    let acc = offsetclosure state.env 2 in
+    count_loop level bytecode { next with acc }
+  | PUSHOFFSETCLOSURE n       ->
+    Stack.push state.stack state.acc;
+    let acc = offsetclosure state.env n
+    in count_loop level bytecode { next with acc }
+  | GETGLOBAL n               ->
+    let acc = state.global.(n) in
+    count_loop level bytecode { next with acc = acc }
+  | PUSHGETGLOBAL n           ->
+    Stack.push state.stack state.acc;
+    let acc = state.global.(n) in
+    count_loop level bytecode { next with acc = acc }
+  | GETGLOBALFIELD (n, p)     ->
+    let acc = field state.global.(n) p in
+    count_loop level bytecode { next with acc = acc }
+  | PUSHGETGLOBALFIELD (n, p) ->
+    Stack.push state.stack state.acc;
+    let acc = field state.global.(n) p in
+    count_loop level bytecode { next with acc = acc }
+  | SETGLOBAL n               ->
+    state.global.(n) <- state.acc ;
+    count_loop level bytecode { next with acc = Dummy }
+  | ATOM0                     ->
+    let blk = Block (0, [||]) in
+    count_loop level bytecode {next with acc = blk }
+  | ATOM tag                  ->
+    let blk = Block (tag, [||]) in
+    count_loop level bytecode { next with acc = blk }
+  | PUSHATOM0                 ->
+    Stack.push state.stack state.acc;
+    let blk = Block (0 , [||]) in
+    count_loop level bytecode { next with acc = blk }
+  | PUSHATOM tag              ->
+    Stack.push state.stack state.acc;
+    let blk = Block (0, [||]) in
+    count_loop level bytecode { next with acc = blk }
+  | MAKEBLOCK (tag, sz)       ->
+    let a = Array.make sz Dummy in
+    let blk = Block (tag, a) in
+    a.(0) <- state.acc;
+    for i = 1 to sz - 1 do
+      a.(i) <- Stack.pop state.stack;
+    done;
+    count_loop level bytecode { next with acc = blk }
+  | MAKEBLOCK1 tag            ->
+    let a = Array.make 1 (state.acc) in
+    let blk = Block (tag, a) in
+    count_loop level bytecode { next with acc = blk }
+  | MAKEBLOCK2 tag            ->
+    let a = Array.make 2 (state.acc) in
+    let blk = Block (tag, a) in
+    a.(1) <- Stack.pop state.stack;
+    count_loop level bytecode { next with acc = blk }
+  | MAKEBLOCK3 tag            ->
+    let a = Array.make 3 (state.acc) in
+    let blk = Block (tag, a) in
+    a.(1) <- Stack.pop state.stack;
+    a.(2) <- Stack.pop state.stack;
+    count_loop level bytecode { next with acc = blk }
+  | MAKEFLOATBLOCK n         ->
+    let a = Array.make n Dummy in
+    let blk = Block (Obj.double_array_tag,a) in
+    a.(0) <- state.acc;
+    Stack.popn state.stack (n-1);
+    count_loop level bytecode { next with acc = blk }
+  | GETFIELD0                 ->
+    let acc = field state.acc 0 in
+    count_loop level bytecode { next with acc = acc }
+  | GETFIELD1                 ->
+    let acc = field state.acc 1 in
+    count_loop level bytecode { next with acc = acc }
+  | GETFIELD2                 ->
+    let acc = field state.acc 2 in
+    count_loop level bytecode { next with acc = acc }
+  | GETFIELD3                 ->
+    let acc = field state.acc 3 in
+    count_loop level bytecode { next with acc = acc }
+  | GETFIELD n                ->
+    let acc = field state.acc n in
+    count_loop level bytecode { next with acc = acc }
+  | GETFLOATFIELD i ->
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | SETFIELD0                 ->
+    set_field state.acc 0 (Stack.pop state.stack);
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | SETFIELD1                 ->
+    set_field state.acc 1 (Stack.pop state.stack);
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | SETFIELD2                 ->
+    set_field state.acc 2 (Stack.pop state.stack);
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | SETFIELD3                 ->
+    set_field state.acc 3 (Stack.pop state.stack);
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | SETFIELD n                 ->
+    set_field state.acc n (Stack.pop state.stack);
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | SETFLOATFIELD n           ->
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | VECTLENGTH                ->
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | GETVECTITEM               ->
+    ignore @@ Stack.pop state.stack;
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | SETVECTITEM               ->
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | GETSTRINGCHAR             ->
+    ignore @@ Stack.pop state.stack;
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | SETSTRINGCHAR             ->
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc }
+  | BRANCH b -> count_loop level bytecode { next with pc = b }
+  | BRANCHIF ptr              ->
+     begin
+      match state.acc with
+        | Dummy ->
+          max (count_loop (level+1) bytecode { next with pc = ptr })
+            (count_loop level bytecode next)
+      | Int 0 -> count_loop level bytecode next
+      | _ -> count_loop (level+1) bytecode { next with pc = ptr }
+    end
+  | BRANCHIFNOT ptr           ->
+    begin
+      match state.acc with
+      | Dummy ->
+        max (count_loop (level+1) bytecode { next with pc = ptr })
+              (count_loop level bytecode next)
+      | Int 0 -> count_loop (level+1) bytecode { next with pc = ptr }
+      | _ -> count_loop level bytecode next
+    end
+  | SWITCH (n, ptrs)          ->
+    (* Probleme ici  *)
+    begin
+    match state.acc with
+      | Int v ->
+        count_loop level bytecode { next with pc = ptrs.(v) }
+      | Block (tag,b) ->  count_loop level bytecode { next with pc = ptrs.(tag + (n land 0xFFFF)) }
+      | _ -> failwith "?"
+  end
+  | BOOLNOT                   ->
+    let acc = match state.acc with
+      | Int 0 -> Int 1
+      | Int 1 -> Int 0
+      | _ -> failwith "not a bool"
+    in
+    count_loop level bytecode { next with acc }
+  | PUSHTRAP ptr              ->
+    Stack.push state.stack (Int state.extraArgs);
+    Stack.push state.stack state.env;
+    Stack.push state.stack (Int state.trapSp);
+    Stack.push state.stack (Ptr ptr);
+    count_loop level bytecode { next with trapSp = Stack.length state.stack }
+  | POPTRAP                   ->
+    ignore @@ Stack.pop state.stack;
+    let trapSp = int_of_value (Stack.pop state.stack) in
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    count_loop level bytecode { next with trapSp = trapSp }
+  | C_CALL1 idx ->
+    let acc = Dummy in
+    count_loop level bytecode { next with acc = acc}
+  | C_CALL2 idx ->
+    let acc = Dummy in
+    ignore @@ Stack.pop state.stack;
+    count_loop level bytecode { next with acc }
+  | C_CALL3 idx ->
+    let acc = Dummy in
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    count_loop level bytecode { next with acc }
+  | C_CALL4 idx ->
+    let acc = Dummy in
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    count_loop level bytecode { next with acc }
+  | C_CALL5 idx ->
+    let acc = Dummy in
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    ignore @@ Stack.pop state.stack;
+    count_loop level bytecode { next with acc }
+  | C_CALLN (narg, idx)       ->
+    let acc = Dummy in
+    Stack.push state.stack state.acc;
+    Stack.popn state.stack narg;
+    count_loop level bytecode { next with acc }
+  | RAISE | RERAISE | RAISE_NOTRACE -> raise Exit
+  | CHECK_SIGNALS             ->
+    count_loop level bytecode next
+  | CONST0                    -> count_loop level bytecode { next with acc = Int 0 }
+  | CONST1                    -> count_loop level bytecode { next with acc = Int 1 }
+  | CONST2                    -> count_loop level bytecode { next with acc = Int 2 }
+  | CONST3                    -> count_loop level bytecode { next with acc = Int 3 }
+  | CONSTINT n                -> count_loop level bytecode { next with acc = Int n }
+  | PUSHCONST0                ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = Int 0 }
+  | PUSHCONST1                ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = Int 1 }
+  | PUSHCONST2                ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = Int 2 }
+  | PUSHCONST3                ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = Int 3 }
+  | PUSHCONSTINT n            ->
+    Stack.push state.stack state.acc;
+    count_loop level bytecode { next with acc = Int n }
+  | NEGINT                    ->
+    let acc = int_op (fun x y -> -x ) state.acc (Int 0) in
+    count_loop level bytecode { next with acc = acc }
+  | ADDINT                    ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x+y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | SUBINT                    ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x-y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | MULINT                    ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x*y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | DIVINT                    ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x/y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | MODINT                    ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x mod y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | ANDINT                    ->
+     let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x land y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | ORINT                     ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x lor y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | XORINT                    ->
+      let v = (Stack.pop state.stack) in
+      let acc = int_op (fun x y -> x lxor y ) state.acc v in
+      count_loop level bytecode { next with acc }
+  | LSLINT                    ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x lsl y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | LSRINT                    ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x lsr y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | ASRINT                    ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> x asr y ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | EQ                        ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> if x = y then 1 else 0 ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | NEQ ->
+      let v = (Stack.pop state.stack) in
+      let acc = int_op (fun x y -> if x <> y then 1 else 0 ) state.acc v in
+      count_loop level bytecode { next with acc }
+  | LTINT                     ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> if x < y then 1 else 0) state.acc v in
+    count_loop level bytecode { next with acc }
+  | LEINT                     ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> if x <= y then 1 else 0 ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | GTINT                     ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> if x > y then 1 else 0 ) state.acc v in
+    count_loop level bytecode { next with acc }
+  | GEINT                     ->
+    let v = (Stack.pop state.stack) in
+    let acc = int_op (fun x y -> if x >= y then 1 else 0) state.acc v in
+    count_loop level bytecode { next with acc }
+  | OFFSETINT n               ->
+    let acc = int_op (fun x y -> x + y ) state.acc (Int n) in
+    count_loop level bytecode { next with acc }
+  | OFFSETREF n               ->
+    begin
+      match state.acc with
+      | Block (tag,t) -> t.(0) <- int_op (fun x y -> x + y) t.(0) (Int n)
+      | _ -> failwith "not a block"
+    end;
+    count_loop level bytecode next
+  | ISINT                     ->
+    let acc = match state.acc with
+      | Int i -> Int 1
+      | _ -> Int 0
+    in
+    count_loop level bytecode { next with acc }
+  | GETMETHOD                 ->
+    let acc = Dummy in
+    count_loop level bytecode { next with acc }
+  | BEQ (n, ptr)              ->
+       begin
+      match state.acc with
+        | Dummy ->
+          max (count_loop (level+1) bytecode { next with pc = ptr })
+            (count_loop level bytecode next)
+      | Int v -> if n = v then
+          count_loop (level+1) bytecode { next with pc = ptr }
+        else
+          count_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BNEQ (n, ptr)             ->
+   begin
+      match state.acc with
+      | Dummy ->
+        max (count_loop (level+1) bytecode { next with pc = ptr })
+        (count_loop level bytecode next)
+      | Int v -> if n <> v then
+          count_loop (level+1) bytecode { next with pc = ptr }
+        else
+          count_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BLTINT (n, ptr)           ->
+       begin
+      match state.acc with
+      | Dummy ->
+        max (count_loop (level+1) bytecode { next with pc = ptr })
+        (count_loop level bytecode next)
+      | Int v -> if n < v then
+          count_loop (level+1) bytecode { next with pc = ptr }
+        else
+          count_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BLEINT (n, ptr)           ->
+     begin
+      match state.acc with
+        | Dummy ->
+          max (count_loop (level+1) bytecode { next with pc = ptr })
+            (count_loop level bytecode next)
+      | Int v -> if n <= v then
+          count_loop (level+1) bytecode { next with pc = ptr }
+        else
+          count_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BGTINT (n, ptr)           ->
+    begin
+      match state.acc with
+      | Dummy ->
+        max (count_loop (level+1) bytecode { next with pc = ptr })
+        (count_loop level bytecode next)
+      | Int v -> if n > v then
+          count_loop (level+1) bytecode { next with pc = ptr }
+        else
+          count_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | BGEINT (n, ptr) ->
+        begin
+      match state.acc with
+        | Dummy ->
+          max (count_loop (level+1) bytecode { next with pc = ptr })
+            (count_loop level bytecode next)
+      | Int v -> if n >= v then
+          count_loop (level+1) bytecode { next with pc = ptr }
+        else
+          count_loop level bytecode next
+      | _ -> failwith "wrong accumulator"
+    end
+  | ULTINT ->
+    let n = int_op (fun x y -> x + min_int) state.acc (Int 0) in
+    let p = int_op (fun x y -> x + min_int) (Stack.pop state.stack) (Int 0) in
+    let acc = int_op (fun x y -> if x < y then 1 else 0) n p in
+    count_loop level bytecode { next with acc }
+  | UGEINT ->
+    let n = int_op (fun x y -> x + min_int) state.acc (Int 0) in
+    let p = int_op (fun x y -> x + min_int) (Stack.pop state.stack) (Int 0) in
+    let acc = int_op (fun x y -> if x >= y then 1 else 0) n p in
+    count_loop level bytecode { next with acc }
+  (* | BULTINT (n,ptr) -> *)
+  (*   count_loop level bytecode { next with pc = ptr }; *)
+  (*   count_loop level bytecode next *)
+  (* | BUGEINT (n, ptr) -> *)
+  (*   count_loop level bytecode { next with pc = ptr }; *)
+  (*   count_loop level bytecode next *)
+  | GETPUBMET (tag, cache)    -> failwith "todo getpubmet"
+  | GETDYNMET                 -> failwith "todo getdynmet"
+  | STOP                      -> 0
+  | EVENT                     -> failwith "todo event"
+  | BREAK                     -> failwith "todo break"
+  | _ -> failwith "unknown instr"
+
 
 
 let rec interp_loop level bytecode state : unit =
@@ -952,4 +1604,5 @@ let () =
   OByteLib.Code.print data symb primitives stdout  bytecode;
   let global = Array.map value_of_obytelib data in
   Array.iteri (fun i s -> Format.printf "\t %d : %s\n" i (string_of_value s)) global;
-  interp_loop 0 bytecode (new_state global)
+  interp_loop 0 bytecode (new_state global);
+  Printf.printf "Cycles : %d \n"  @@ count_loop 0 bytecode (new_state global)
