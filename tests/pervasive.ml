@@ -17,6 +17,9 @@
 
 (* Exceptions *)
 
+external begin_loop : unit -> unit = "begin_loop"
+external end_loop : unit -> unit = "end_loop"
+
 external register_named_value : string -> 'a -> unit
                               = "caml_register_named_value"
 

@@ -10,8 +10,9 @@ bytecrawler: bytecrawler.ml
 pervasives.cmo : tests/pervasive.ml
 	@cd tests && ocamlc -c -nopervasives pervasive.ml
 
-test : bytecrawler tests/test.ml pervasives.cmo
-	@cd tests && ocamlc -nopervasives test.ml -o test.byte
+test : bytecrawler tests/test.ml tests/pervasive.ml tests/prims.c
+	@cd tests && gcc -c -fPIC -I/usr/local/lib/ocaml prims.c -o prims.o
+	@cd tests && ocamlc -nopervasives -custom prims.o pervasive.ml test.ml -o test.byte
 	@cd tests && ocamlclean test.byte -o test.byte
 	@cd tests && ../bytecrawler -i test.byte
 
@@ -20,6 +21,7 @@ clean:
 	tests/*.byte \
 	tests/*.cmo \
 	tests/*.cmi \
+	tests/*.o \
 	*.cmo \
 	*.cmi \
 	*.byte

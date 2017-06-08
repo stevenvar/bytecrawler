@@ -8,7 +8,7 @@ let f x =
     k
 
 let _ =
-  let f = f 3939 in
-  for i = 10 to 13 do
-    ignore @@ f 3
-  done
+  let f = f 9 in
+  begin_loop ();
+  f 3;
+  end_loop ();
