@@ -1,0 +1,119 @@
+#include <stdint.h>
+#include "values.h"
+
+val_t acc
+static code_t pc;
+static val_t env;
+static val_t *sp;
+static val_t trapSp;
+static uint8_t extra_args;
+
+
+char read_byte(void) {
+  char c;
+#ifdef __AVR__
+  c = pgm_read_byte_near(ocaml_bytecode + pc);
+#else
+  c = ocaml_bytecode[pc];
+#endif
+  pc ++;
+  return c;
+}
+
+opcode_t read_opcode(void) {
+  return (opcode_t) read_byte();
+}
+
+
+uint8_t read_uint8(void) {
+  return (uint8_t) read_byte();
+}
+
+int8_t read_int8(void) {
+  return (int8_t) read_byte();
+}
+
+uint16_t read_uint16(void) {
+  uint8_t n1 = read_uint8();
+  uint8_t n0 = read_uint8();
+  return ((uint16_t) n1 << 8) | n0;
+}
+
+int16_t read_int16(void) {
+  return (int16_t) read_uint16();
+}
+
+uint32_t read_uint32(void) {
+  uint8_t n3 = read_uint8();
+  uint8_t n2 = read_uint8();
+  uint8_t n1 = read_uint8();
+  uint8_t n0 = read_uint8();
+  return ((uint32_t) n3 << 24) | ((uint32_t) n2 << 16) | ((uint32_t) n1 << 8) | n0;
+}
+
+int32_t read_int32(void) {
+  return (int32_t) read_uint32();
+}
+
+code_t read_ptr_1B(void) {
+  int8_t ofs = read_int8();
+  return pc - 2 + ofs;
+}
+
+code_t read_ptr_2B(void) {
+  int16_t ofs = read_int16();
+  return pc - 3 + ofs;
+}
+
+code_t read_ptr_4B(void) {
+  int32_t ofs = read_int32();
+  return pc - 5 + ofs;
+}
+
+/******************************************************************************/
+
+val_t peek(int n) {
+  return sp[(val_t) n + 1];
+}
+
+void push(val_t x) {
+  *sp = x;
+  sp --;
+}
+
+val_t pop(void) {
+  return *(++sp);
+}
+
+void pop_n(int n) {
+  sp += n;
+}
+
+void acc0(){
+  acc = peek(0);
+}
+
+void acc1(){
+  acc = peek(1);
+}
+
+void acc2(){
+  acc = peek(2);
+}
+
+void acc3(){
+  acc = peek(3);
+}
+
+void acc4(){
+  acc = peek(4);
+}
+
+void acc(){
+  acc = peek(read_uint8());
+}
+
+
+int main(){
+  return 0;
+}
