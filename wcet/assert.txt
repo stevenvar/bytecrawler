@@ -1,0 +1,3 @@
+subprogram "__mulsi3"
+     loop repeats 32 times; end loop;
+end "__mulsi3";
