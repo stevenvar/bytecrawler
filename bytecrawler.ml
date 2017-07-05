@@ -342,35 +342,36 @@ let rec count_loop level state switch =
                                            extraArgs = extraArgs } switch
   | APPTERM1 n ->
     let arg = Stack.top state.stack in
-    Stack.popn state.stack (n - 1);
+    Stack.popn state.stack n;
     (* Format.printf "---> %d <<<---" (int_of_value arg); *)
-    Stack.set state.stack 0 arg;
+    Stack.push state.stack arg;
     let env = state.acc in
     count_loop level { next with pc = ptr_of_value state.acc ;
                                            env = env} switch
-  | APPTERM2 s ->
-    let arg1 = Stack.top state.stack in
-    let arg2 = Stack.top state.stack in
-    Stack.popn state.stack (s - 2);
-    Stack.set state.stack 0 arg1;
-    Stack.set state.stack 1 arg2;
+  | APPTERM2 n ->
+
+    let arg1 = Stack.pop state.stack in
+    let arg2 = Stack.pop state.stack  in
+    Stack.popn state.stack (n-2);
+    Stack.push state.stack arg2;
+    Stack.push state.stack arg1;
     let env = state.acc in
     let extraArgs = state.extraArgs + 1 in
     count_loop level { next with pc = ptr_of_value state.acc;
-                                           env = env ; extraArgs =
-                                                         extraArgs } switch
-  | APPTERM3 s ->
-     let arg1 = Stack.top state.stack in
-     let arg2 = Stack.top state.stack in
-     let arg3 = Stack.top state.stack in
-     Stack.popn state.stack (s - 3);
-     Stack.set state.stack 0 arg1;
-     Stack.set state.stack 1 arg2;
-     Stack.set state.stack 2 arg3;
+                                 env = env ;
+                                 extraArgs = extraArgs } switch
+  | APPTERM3 n ->
+    let arg1 = Stack.peek state.stack 0 in
+    let arg2 = Stack.peek state.stack 1 in
+    let arg3 = Stack.peek state.stack 2 in
+    Stack.popn state.stack n;
+    Stack.push state.stack arg3;
+    Stack.push state.stack arg2;
+    Stack.push state.stack arg1;
     let extraArgs = state.extraArgs + 2 in
     let env = state.acc in
     count_loop level { next with pc = ptr_of_value state.acc ;
-                                           env = env ;
+                                 env = env ;
                                            extraArgs = extraArgs } switch
   | RETURN n ->
     Stack.popn state.stack n;
@@ -871,7 +872,7 @@ let rec count_loop level state switch =
   (*   count_loop level next *)
   | GETPUBMET (tag, cache)    -> failwith "todo getpubmet"
   | GETDYNMET                 -> failwith "todo getdynmet"
-  | STOP                      -> raise Exit
+  | STOP                      -> 0
   | EVENT                     -> failwith "todo event"
   | BREAK                     -> failwith "todo break"
   | _ -> failwith "unknown instr"
@@ -1027,32 +1028,33 @@ let interp_loop_0 level bytecode state prims =
                                            env = env ;
                                            extraArgs = extraArgs }
   | APPTERM1 n ->
-    let arg = Stack.top state.stack in
-    Stack.popn state.stack (n - 1);
+    let arg = Stack.peek state.stack 0 in
+    Stack.popn state.stack n;
     (* Format.printf "---> %d <<<---" (int_of_value arg); *)
-    Stack.set state.stack 0 arg;
+    Stack.push state.stack arg;
     let env = state.acc in
     interp_loop level { next with pc = ptr_of_value state.acc ;
                                            env = env}
-  | APPTERM2 s ->
-    let arg1 = Stack.top state.stack in
-    let arg2 = Stack.top state.stack in
-    Stack.popn state.stack (s - 2);
-    Stack.set state.stack 0 arg1;
-    Stack.set state.stack 1 arg2;
+  | APPTERM2 n ->
+    Format.printf "APPTERM2 %d" n;
+    let arg1 = Stack.peek state.stack 0 in
+    let arg2 = Stack.peek state.stack 1 in
+    Stack.popn state.stack n;
+    Stack.push state.stack arg2;
+    Stack.push state.stack arg1;
     let env = state.acc in
     let extraArgs = state.extraArgs + 1 in
     interp_loop level { next with pc = ptr_of_value state.acc;
                                            env = env ; extraArgs =
                                                          extraArgs }
   | APPTERM3 s ->
-     let arg1 = Stack.top state.stack in
-     let arg2 = Stack.top state.stack in
-     let arg3 = Stack.top state.stack in
+     let arg1 = Stack.peek state.stack 0 in
+     let arg2 = Stack.peek state.stack 1 in
+     let arg3 = Stack.peek state.stack 2 in
      Stack.popn state.stack (s - 3);
-     Stack.set state.stack 0 arg1;
-     Stack.set state.stack 1 arg2;
-     Stack.set state.stack 2 arg3;
+     Stack.push state.stack arg3;
+     Stack.push state.stack arg2;
+     Stack.push state.stack arg1;
     let extraArgs = state.extraArgs + 2 in
     let env = state.acc in
     interp_loop level { next with pc = ptr_of_value state.acc ;
