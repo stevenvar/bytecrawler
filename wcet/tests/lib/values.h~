@@ -24,7 +24,7 @@
 /******************************************************************************/
 /******************************************************************************/
 
-#else
+#elif OCAML_VIRTUAL_ARCH == 32
 
 /*
   Version 32 bits
@@ -88,13 +88,14 @@ typedef uint32_t code_t;
 /* Blocks */
 
 #define Field(val, i) (ocaml_heap[(Block_val(val) >> 2) + i])
+#define StringVal(val) ((char *) ocaml_heap + Block_val(val))
 #define StringField(val, i) (*((unsigned char *) ocaml_heap + Block_val(val) + i))
 
 #define Header(val) Field(val, -1)
 #define Code_val(val) Field(val, 0)
 
 #define Make_string_data(c3, c2, c1, c0) \
-  (((val_t) (c3) << 24) | ((val_t) (c2) << 16) | ((val_t) (c1) << 8) | ((val_t) (c0)))
+  (((val_t) (c0) << 24) | ((val_t) (c1) << 16) | ((val_t) (c2) << 8) | ((val_t) (c3)))
 
 #define Make_custom_data(b3, b2, b1, b0) Make_string_data(b3, b2, b1, b0)
 
@@ -130,4 +131,3 @@ extern void *nativeint_custom_operations;
 /******************************************************************************/
 /******************************************************************************/
 /******************************************************************************/
-#endif
