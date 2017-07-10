@@ -1,0 +1,4 @@
+
+subprogram "interp"
+	   loop repeats XXX times; end loop;
+end	"interp";

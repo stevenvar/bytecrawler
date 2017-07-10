@@ -1630,5 +1630,5 @@ let count_cycles f =
 let () =
    let speclist = [("-i", Arg.String (fun s -> interp s), "Enables interpreter mode")
                    ]
-   in let usage_msg = "Options : "
+   in let usage_msg = "Usage : bytecrawler file \n Options : "
    in Arg.parse speclist (fun s -> count_cycles s) usage_msg;

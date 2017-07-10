@@ -30,12 +30,14 @@ PROGMEM extern void * const ocaml_primitives[];
 #define OCAML_VIRTUAL_ARCH             32
 
 
+
 PROGMEM void * const ocaml_primitives[OCAML_PRIMITIVE_NUMBER];
 
 
 val_t ocaml_heap[OCAML_HEAP_WOSIZE];
 val_t ocaml_bytecode[OCAML_BYTECODE_BSIZE];
 val_t ocaml_stack[OCAML_STACK_WOSIZE];
+val_t ocaml_global_data[OCAML_GLOBDATA_NUMBER];
 int serialEventRun(){return 0;}
 val_t acc;
 static code_t pc;
@@ -573,7 +575,7 @@ val_t interp(void) {
       if (extra_args >= n){
         extra_args -= n;
       } else {
-        Alloc_small(acc, extra_args + 3, Closure_tag);
+        /* Alloc_small(acc, extra_args + 3, Closure_tag); */
         Code_val(acc) = Val_codeptr(pc - 3);
         Field(acc, 1) = env;
         for (i = 0 ; i < n; i ++) {
@@ -595,7 +597,7 @@ val_t interp(void) {
       if (n != 0){
         push(acc);
       }
-      Alloc_small(acc, n + 1, Closure_tag);
+      /* Alloc_small(acc, n + 1, Closure_tag); */
       Code_val(acc) = Val_int(ptr);
       for (i = 0; i < n; i ++){
         Field(acc, i + 1) = pop();
@@ -612,7 +614,7 @@ val_t interp(void) {
       if (n != 0){
         push(acc);
       }
-      Alloc_small(acc, n + 1, Closure_tag);
+      /* Alloc_small(acc, n + 1, Closure_tag); */
       Code_val(acc) = Val_int(ptr);
       for (i = 0; i < n; i ++){
         Field(acc, i + 1) = pop();
@@ -629,7 +631,7 @@ val_t interp(void) {
       if (n != 0){
         push(acc);
       }
-      Alloc_small(acc, n + 1, Closure_tag);
+      /* Alloc_small(acc, n + 1, Closure_tag); */
       Code_val(acc) = Val_int(ptr);
       for (i = 0; i < n; i ++){
         Field(acc, i + 1) = pop();
@@ -651,7 +653,7 @@ val_t interp(void) {
       if (v > 0) {
         push(acc);
       }
-      Alloc_small(acc, blksize, Closure_tag);
+      /* Alloc_small(acc, blksize, Closure_tag); */
       Field(acc, 0) = Val_int(o);
       for (i = 1; i < f; i ++) {
         Field(acc, 2 * i - 1) = Make_header(2 * i, Infix_tag);
@@ -674,7 +676,7 @@ val_t interp(void) {
       if (v > 0) {
         push(acc);
       }
-      Alloc_small(acc, 2 * f - 1 + v, Closure_tag);
+      /* Alloc_small(acc, 2 * f - 1 + v, Closure_tag); */
       Field(acc, 0) = o;
       for (i = 1; i < f; i ++) {
         Field(acc, 2 * i - 1) = Make_header(2 * i, Infix_tag);
@@ -696,7 +698,7 @@ val_t interp(void) {
       if (v > 0) {
         push(acc);
       }
-      Alloc_small(acc, 2 * f - 1 + v, Closure_tag);
+      /* Alloc_small(acc, 2 * f - 1 + v, Closure_tag); */
       Field(acc, 0) = o;
       for (i = 1; i < f; i ++) {
         Field(acc, 2 * i - 1) = Make_header(2 * i, Infix_tag);
@@ -898,7 +900,7 @@ val_t interp(void) {
       tag_t tag = read_uint8();
       uint8_t size = read_uint8();
       val_t block;
-      Alloc_small(block, size, tag);
+      /* Alloc_small(block, size, tag); */
       Field(block, 0) = acc;
       for (uint8_t i = 1; i < size; i ++) Field(block, i) = pop();
       acc = block;
@@ -911,7 +913,7 @@ val_t interp(void) {
       tag_t tag = read_uint8();
       uint16_t size = read_uint16();
       val_t block;
-      Alloc_small(block, size, tag);
+      /* Alloc_small(block, size, tag); */
       Field(block, 0) = acc;
       for (uint16_t i = 1; i < size; i ++) Field(block, i) = pop();
       acc = block;
@@ -923,7 +925,7 @@ val_t interp(void) {
     case OCAML_MAKEBLOCK1 : {
       tag_t tag = read_uint8();
       val_t block;
-      Alloc_small(block, 1, tag);
+      /* Alloc_small(block, 1, tag); */
       Field(block, 0) = acc;
       acc = block;
       break;
@@ -934,7 +936,7 @@ val_t interp(void) {
     case OCAML_MAKEBLOCK2 : {
       tag_t tag = read_uint8();
       val_t block;
-      Alloc_small(block, 2, tag);
+      /* Alloc_small(block, 2, tag); */
       Field(block, 0) = acc;
       Field(block, 1) = pop();
       acc = block;
