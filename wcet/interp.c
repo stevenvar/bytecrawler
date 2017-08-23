@@ -948,7 +948,7 @@ val_t interp(void) {
     case OCAML_MAKEBLOCK3 : {
       tag_t tag = read_uint8();
       val_t block;
-      Alloc_small(block, 3, tag);
+      /* Alloc_small(block, 3, tag); */
       Field(block, 0) = acc;
       Field(block, 1) = pop();
       Field(block, 2) = pop();
