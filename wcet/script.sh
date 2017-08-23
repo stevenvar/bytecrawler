@@ -12,12 +12,13 @@ do
     NLOOPS=`echo $LINE | cut -d' ' -f2`
     sed -e '1 i\
 #define OCAML_'$INST' 1
-' interp.c > tests/wcet_$INST.c
-    sed -i ".bak" -e 's/switch(opcode)/switch(OCAML_'$INST')/g' tests/wcet_$INST.c
+' interp.c > tmp/wcet_$INST.c
+    cp -r lib tmp/lib
+    sed -i ".bak" -e 's/switch(opcode)/switch(OCAML_'$INST')/g' tmp/wcet_$INST.c
     echo $INCLUDES
-    avr-gcc $CFLAGS -I tests/lib/*.h tests/lib/*.c tests/wcet_$INST.c -o tests/wcet_$INST.avr
+    avr-gcc $CFLAGS -I lib/*.h lib/*.c tmp/wcet_$INST.c -o tmp/wcet_$INST.avr
     if [[ $NLOOPS -eq "0" ]]; then
-	BNT=`boundt_avr -device=$MMCU tests/wcet_$INST.avr interp 2>&1`
+	BNT=`boundt_avr -device=$MMCU tmp/wcet_$INST.avr interp 2>&1`
 	if echo $BNT | grep -q 'Error' ; then
 	    echo "error"
 	    echo "$INST;-1" >> cyc.csv
@@ -30,7 +31,7 @@ do
 	do
 	    cp assert.txt assert.$i.txt
 	    sed -i ".bak" -e 's/XXX/'$i'/g' assert.$i.txt
-	    BNT=`boundt_avr -device=$MMCU -assert assert.$i.txt tests/wcet_$INST.avr interp 2>&1`
+	    BNT=`boundt_avr -device=$MMCU -assert assert.$i.txt tmp/wcet_$INST.avr interp 2>&1`
 	    if echo $BNT | grep -q 'Error' ; then
 		echo "error"
 		echo "${INST}_${i};-1" >> cyc.csv
@@ -43,7 +44,8 @@ do
 
 	done
     fi
-    # rm tests/wcet_$INST.c
-    # rm tests/wcet_$INST.avr
-    rm tests/wcet_$INST.*.bak
+    rm tmp/wcet_$INST.c
+    rm tmp/wcet_$INST.avr
+    rm tmp/wcet_$INST.*.bak
 done < $1
+rm -rf tmp/*
