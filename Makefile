@@ -5,7 +5,7 @@ FLAGS    := -I +../obytelib
 all: $(TARGETS)
 
 bytecrawler: bytecrawler.ml
-	ocamlc $(FLAGS) obytelib.cma bytecrawler.ml -o bytecrawler
+	ocamlfind ocamlc -package csv -linkpkg $(FLAGS) obytelib.cma bytecrawler.ml -o bytecrawler
 
 pervasives.cmo : tests/pervasive.ml
 	@cd tests && ocamlc -c -nopervasives pervasive.ml

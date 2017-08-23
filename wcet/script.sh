@@ -1,8 +1,10 @@
 #!/bin/sh
 
-CFLAGS="-mmcu=atmega103 -DUSB_VID=0x2341 -DUSB_PID=0x8036 -DF_CPU=16000000L -DARDUINO=105 -ffunction-sections -fdata-sections -g -Os -w -fno-exceptions"
+MMCU="atmega103"
+CFLAGS="-mmcu=$MMCU -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=32 -g -O2 -w -fno-exceptions"
 LFLAGS="-Wl,-Os -Wl,--gc-sections"
-rm "cyc.txt"
+rm "cyc.csv"
+export BOUNDT_HELP=''
 while read LINE
 do
     echo $LINE
@@ -13,20 +15,35 @@ do
 ' interp.c > tests/wcet_$INST.c
     sed -i ".bak" -e 's/switch(opcode)/switch(OCAML_'$INST')/g' tests/wcet_$INST.c
     echo $INCLUDES
-    avr-gcc -g -O2 -w -mmcu=atmega163 -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=32 -I tests/lib/*.h tests/lib/*.c tests/wcet_$INST.c -o tests/wcet_$INST.avr
+    avr-gcc $CFLAGS -I tests/lib/*.h tests/lib/*.c tests/wcet_$INST.c -o tests/wcet_$INST.avr
     if [[ $NLOOPS -eq "0" ]]; then
-	NB=`boundt_avr -device=atmega163 tests/wcet_$INST.avr interp | Sed -n 's/Wcet:.*:interp:.*:\(.*\)/\1/p'`
-	echo $INST:$NB >> cyc.txt
-	echo "ok"
+	BNT=`boundt_avr -device=$MMCU tests/wcet_$INST.avr interp 2>&1`
+	if echo $BNT | grep -q 'Error' ; then
+	    echo "error"
+	    echo "$INST;-1" >> cyc.csv
+	else
+	    NB=`echo $BNT | sed -n 's/.*Wcet:.*:interp:.*:\(.*\)/\1/p'`
+	    echo "$INST;$NB" >> cyc.csv
+	fi
     else
 	for (( i=0; i <= $NLOOPS ; i++))
 	do
 	    cp assert.txt assert.$i.txt
 	    sed -i ".bak" -e 's/XXX/'$i'/g' assert.$i.txt
-	    echo $i
-	    NB=`boundt_avr -device=atmega163 -assert assert.$i.txt tests/wcet_$INST.avr interp | sed -n 's/Wcet:.*:interp:.*:\(.*\)/\1/p'`
-	    echo $INST "["$i"]":$NB >> cyc.txt
+	    BNT=`boundt_avr -device=$MMCU -assert assert.$i.txt tests/wcet_$INST.avr interp 2>&1`
+	    if echo $BNT | grep -q 'Error' ; then
+		echo "error"
+		echo "${INST}_${i};-1" >> cyc.csv
+	    else
+	       NB=`echo $BNT | sed -n 's/.*Wcet:.*:interp:.*:\(.*\)/\1/p'`
+	       echo "${INST}_${i};$NB" >> cyc.csv
+	    fi
+	    rm assert.$i.txt
+	    rm assert.$i.txt.bak
+
 	done
-	echo "nok"
     fi
+    # rm tests/wcet_$INST.c
+    # rm tests/wcet_$INST.avr
+    rm tests/wcet_$INST.*.bak
 done < $1
