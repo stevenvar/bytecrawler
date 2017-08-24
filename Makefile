@@ -1,6 +1,7 @@
 SRCS     := $(wildcard *.ml *.mli)
 TARGETS  := bytecrawler
 FLAGS    := -I +../obytelib
+OCAMLLIB := $(ocamlfind printconf stdlib)
 
 all: $(TARGETS)
 
@@ -11,7 +12,7 @@ pervasives.cmo : tests/pervasive.ml
 	@cd tests && ocamlc -c -nopervasives pervasive.ml
 
 tests/test.byte : tests/test.ml tests/pervasive.ml tests/prims.c
-	cd tests && gcc -c -fPIC -I/usr/local/lib/ocaml prims.c -o prims.o \
+	cd tests && gcc -c -fPIC -I $(OCAMLLIB) prims.c -o prims.o \
 	&& ocamlc -nopervasives -custom prims.o pervasive.ml test.ml -o test.byte \
 	&& ocamlclean test.byte -o test.byte
 
