@@ -1,4 +1,5 @@
 SRCS     := $(wildcard *.ml *.mli)
+TESTS	 := $(wildcard test*.ml)
 TARGETS  := bytecrawler
 FLAGS    := -I +../obytelib
 OCAMLLIB := $(shell ocamlfind printconf stdlib)
@@ -21,8 +22,8 @@ interp : bytecrawler tests/test.byte
 	./bytecrawler -i tests/test.byte
 
 
-test : bytecrawler tests/test.byte
-	./bytecrawler tests/test.byte
+test : ./bytecrawler
+	cd tests && make
 
 clean:
 	@rm -f *~ $(TARGETS) \
