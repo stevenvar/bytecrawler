@@ -1,7 +1,7 @@
 SRCS     := $(wildcard *.ml *.mli)
 TARGETS  := bytecrawler
 FLAGS    := -I +../obytelib
-OCAMLLIB := $(ocamlfind printconf stdlib)
+OCAMLLIB := $(shell ocamlfind printconf stdlib)
 
 all: $(TARGETS)
 
