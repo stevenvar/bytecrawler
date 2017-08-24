@@ -359,6 +359,7 @@ let cycles inst switch nbloops =
           Not_found ->
           List.assoc ((string_of_instr inst)^"_4B") !cyc
       in
+      Format.fprintf Format.std_formatter "%s %i \n" (string_of_instr inst) nb;
       if nb = -1 then (
         raise Unsupported)
       else nb)
