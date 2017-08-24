@@ -3,7 +3,7 @@
 MMCU="atmega103"
 CFLAGS="-mmcu=$MMCU -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=32 -g -O2 -w -fno-exceptions"
 LFLAGS="-Wl,-Os -Wl,--gc-sections"
-rm "cyc.csv"
+rm -f "cyc.csv"
 mkdir tmp
 export BOUNDT_HELP=''
 while read LINE
