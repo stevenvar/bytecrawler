@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
-MMCU="atmega103"
-CFLAGS="-mmcu=$MMCU -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=32 -g -O2 -w -fno-exceptions"
+MMCU="atmega328p"
+CFLAGS="-mmcu=$MMCU -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=32 -gdwarf-3 -g3 -O1 -w -fno-exceptions"
 LFLAGS="-Wl,-Os -Wl,--gc-sections"
 rm -f "cyc.csv"
 mkdir tmp
@@ -45,8 +45,8 @@ do
 
 	done
     fi
-    rm tmp/wcet_$INST.c
-    rm tmp/wcet_$INST.avr
-    rm tmp/wcet_$INST.*.bak
+    #rm tmp/wcet_$INST.c
+    #rm tmp/wcet_$INST.avr
+    #rm tmp/wcet_$INST.*.bak
 done < $1
 rm -rf tmp
