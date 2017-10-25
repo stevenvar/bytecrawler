@@ -220,10 +220,10 @@ module Stack = struct
     let str = ref "" in
     for i = s.size -1 downto 0  do
       let x = s.tab.(i) in
-      str := !str^(f x)^" , ";
+      str := !str^(string_of_int (s.size -1 -i))^":"^(f x)^" ,\n";
     done;
     str:= String.sub !str 0 (max 0 (String.length !str -3));
-    "[|"^(!str)^"|] <size="^(string_of_int s.size)^">"
+    "[|\n"^(!str)^"|] <size="^(string_of_int s.size)^">"
 end
 
 type state = { mutable pc : int;
@@ -309,7 +309,10 @@ let size_of_value v =
     Block (_,b) -> Array.length b
   | _ -> 0
 
+let max_size = ref 0 
+
 let print_state state level t =
+  if Stack.length state.stack > !max_size then max_size := Stack.length state.stack;
   Printf.printf
     "%sstack = %s
 %senv = %s
@@ -566,7 +569,6 @@ let rec count_loop level state switch cpt =
     (* nargs = Wosize_val(env) -1  *)
     let blk = env_of_closure state.env in
     let n = Array.length blk - 1 in
-    Format.printf "--> %d" n;
     for i = n downto 1 do
       Stack.push state.stack blk.(i)
     done;
@@ -1253,7 +1255,7 @@ let interp_loop_0 level bytecode state prims =
   | RESTART ->
     let blk = env_of_closure state.env in
     let n = Array.length blk - 1 in
-    Format.printf "--> %d" n;
+    Format.printf "--> NARGS = %d" n;
     for i = n downto 1 do
       Stack.push state.stack blk.(i)
     done;
@@ -1807,3 +1809,4 @@ let () =
                    ]
    in let usage_msg = "Usage : bytecrawler file \n Options : "
    in Arg.parse speclist (fun s -> count_cycles s) usage_msg;
+      print_int (!max_size)
