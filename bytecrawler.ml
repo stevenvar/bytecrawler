@@ -223,7 +223,7 @@ module Stack = struct
       str := !str^(string_of_int (s.size -1 -i))^":"^(f x)^" ,\n";
     done;
     str:= String.sub !str 0 (max 0 (String.length !str -3));
-    "[|\n"^(!str)^"|] <size="^(string_of_int s.size)^">"
+    "[|\n"^(!str)^"\n|]\n<size="^(string_of_int s.size)^">"
 end
 
 type state = { mutable pc : int;
@@ -258,7 +258,11 @@ let field blk n =
   match blk with
   | Block (tag,tab) -> tab.(n)
   | Closure (_,tab) -> tab.(n-1)
-  | Closure_rec (_,_,tab,_) -> tab.(n)
+  | Closure_rec (_,t,blk,i) ->
+    (* Format.printf "position : %d  \n" *)
+      (* (n - (2 * Array.length t + 1 - 2 * 1)); *)
+    (* blk.(n - (2 * Array.length t + 1 - 2 * 1)) *)
+    blk.(n-1)
   | _ -> failwith "not an environment"
 
 let set_field blk n x =
@@ -272,12 +276,12 @@ let offsetclosure blk n =
   | _ -> failwith "not a recursive closure"
 
 let tabs n =
-  let rec loop i acc =
-    if i <= 0 then acc
-    else
-      loop (i-1) " \t \t "^acc
-  in loop n ""
-
+  (* let rec loop i acc = *)
+    (* if i <= 0 then acc *)
+    (* else *)
+      (* loop (i-1) " \t \t "^acc *)
+  (* in loop n "" *)
+  ""
 
 let rec string_of_value = function
   | Dummy -> "?"
@@ -298,7 +302,7 @@ let rec string_of_value = function
     let s = String.sub s 0 (max 0 (String.length s -1)) in
     "{"^(string_of_value ptr)^s^"}"
   | Closure_rec (ptr,t,env,i) ->
-    let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") ":" env) in
+    let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") "-" env) in
     let s = String.sub s 0 (max 0 (String.length s -1)) in
     "<"^(string_of_value ptr)^"("^(string_of_int i)^")"^s^">"
 
@@ -1055,6 +1059,7 @@ let rec count_loop level state switch cpt =
   | _ -> failwith "unknown instr"
   in count_loop level state false 0
 
+let cpt = ref 0
 
 
 let interp_loop_0 level bytecode state prims =
@@ -1063,7 +1068,9 @@ let interp_loop_0 level bytecode state prims =
   let next = { state with pc = state.pc + 1 } in
   let level = max level 0 in
   print_state state level bytecode;
-  let _ = read_line () in
+  (* let _ = read_line () in *)
+  Format.printf "cpt=%d\n" !cpt;
+  incr cpt;
   match inst with
   | ACC0 -> let i = Stack.peek state.stack 0 in
     interp_loop level { next with acc = i }
@@ -1298,7 +1305,7 @@ let interp_loop_0 level bytecode state prims =
     let acc = Closure_rec (Ptr ptr,t,blk,0) in
     Stack.push state.stack acc;
     for i = 1 to Array.length t do
-      Stack.push state.stack (Block (0,[||]));
+      Stack.push state.stack (Closure_rec(Ptr ptr,t,blk,i))
     done;
     interp_loop level {next with acc = acc }
   | OFFSETCLOSUREM2           ->
@@ -1519,9 +1526,28 @@ let interp_loop_0 level bytecode state prims =
       Printf.printf " >> ENDING LOOP << \n";
     interp_loop level { next with acc = acc}
   | C_CALL2 idx ->
-    let acc = Dummy in
-    ignore @@ Stack.pop state.stack;
-    interp_loop level { next with acc }
+    let peek =  Stack.peek state.stack in 
+    begin
+      match state.acc, peek 0 with
+        Float f, Float f2 ->
+        Format.printf "acc = %f / peek 0 = %F, %b diff = %F \n" f f2 (f >= f2) (f2 -. f);
+        let acc =
+          begin
+            match idx with
+              1 -> Float (f *. f2)
+            | 2 -> Int ( if f2 -. f < 0.0001 then 1 else 0 )
+            | 3 -> Float (f +. f2)
+            | 4 -> Float (f -. f2)
+            | 5 -> Float (f /. f2)
+            | _ -> 
+              Dummy
+          end
+        in
+        ignore @@ Stack.pop state.stack;
+        interp_loop level { next with acc }
+      | _ -> ignore @@ Stack.pop state.stack;
+        interp_loop level { next with acc = Dummy }
+    end
   | C_CALL3 idx ->
     let acc = Dummy in
     ignore @@ Stack.pop state.stack;
