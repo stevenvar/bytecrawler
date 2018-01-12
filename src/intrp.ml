@@ -37,9 +37,9 @@ let interp_loop_0 level bytecode state prims =
   let inst = bytecode.(state.pc) in
   let next = { state with pc = state.pc + 1 } in
   let level = max level 0 in
-  Printf.printf "heap_size = %d \n" (heap_size state);
+  (* Printf.printf "heap_size = %d \n" (heap_size state); *)
   if Mlstack.length state.stack > !max_stack then max_stack := Mlstack.length state.stack;
-  if State.heap_size state > !max_heap then max_heap := State.heap_size state;
+  (* if State.heap_size state > !max_heap then max_heap := State.heap_size state; *)
   print_state state level bytecode;
   (* let _ = read_line () in *)
   match inst with

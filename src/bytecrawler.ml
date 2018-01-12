@@ -7,8 +7,7 @@ open Cycles
 open Intrp
 
 
-
-let () =
+let _ =
    let speclist = [("-i", Arg.String (fun s -> interp s), "Enables interpreter mode")
                    ]
    in let usage_msg = "Usage : bytecrawler file \n Options : "

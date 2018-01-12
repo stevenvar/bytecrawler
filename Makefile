@@ -1,14 +1,29 @@
-SRCS     := $(wildcard *.ml *.mli)
+SRCS     := src/mlstack.ml src/state.ml src/intrp.ml src/cycles.ml src/bytecrawler.ml
+OPAMDIR   := $(shell opam config var lib)
 TESTS	 := $(wildcard test*.ml)
 TARGETS  := bin/bytecrawler
-FLAGS    := -I +../obytelib -I +src
+FLAGS    := -I +../obytelib -I src
 OCAMLLIB := $(shell ocamlfind printconf stdlib)
+OCAMLC   := ocamlc
 PACKAGE := csv
+
+CMOFILES = $(SRCS:%.ml=%.cmo)
 
 all: $(TARGETS)
 
-bin/bytecrawler:  src/mlstack.ml src/state.ml src/intrp.ml src/cycles.ml src/bytecrawler.ml
-	ocamlfind ocamlc -package $(PACKAGE) $(FLAGS) obytelib.cma  -o $@
+bin/bytecrawler:  $(CMOFILES)
+	ocamlfind ocamlc -linkpkg -package $(PACKAGE) $(FLAGS) obytelib.cma  $+ -o $@
+
+%.cmo: %.ml %.cmi
+	ocamlfind ocamlc -package $(PACKAGE) $(FLAGS) -c $*.ml
+
+%.cmi: %.mli %.ml
+	ocamlfind ocamlc -package $(PACKAGE) $(FLAGS)  -c $*.mli
+
+%.cmo: %.ml
+	ocamlfind ocamlc -package $(PACKAGE) $(FLAGS)  -c $*.ml
+
+
 
 pervasives.cmo : tests/pervasive.ml
 	@cd tests && ocamlc -c -nopervasives pervasive.ml
@@ -25,15 +40,18 @@ interp : bytecrawler tests/test.byte
 test : ./bytecrawler
 	cd tests && make
 
+
 clean:
-	@rm -f *~ $(TARGETS) \
-	tests/*.byte \
-	tests/*.cmo \
-	tests/*.cmi \
-	tests/*.o \
-	bin/* \
-	*.cmo \
-	*.cmi \
-	*.byte
+	rm -f .depend
+	rm -f `find . -name "*.o"`
+	rm -f `find . -name "*.a"`
+	rm -f `find . -name "*.cm*"`
+	rm -f `find . -name "*~"`
+
 
 .PHONY: bytecrawler clean
+
+.depend: $(MLSOURCES) Makefile
+	ocamldep -I src $(SRCS).ml > .depend
+
+include .depend
