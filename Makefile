@@ -47,11 +47,12 @@ clean:
 	rm -f `find . -name "*.a"`
 	rm -f `find . -name "*.cm*"`
 	rm -f `find . -name "*~"`
+	rm -r ./bin/
 
 
 .PHONY: bytecrawler clean
 
 .depend: $(MLSOURCES) Makefile
-	ocamldep -I src $(SRCS).ml > .depend
+	ocamldep -I src $(SRCS) > .depend
 
 include .depend

@@ -156,6 +156,7 @@ let string_of_instr = function
 type value = Ptr of int
            | Dummy
            | Int of int
+           | Unit
            | Float of float
            | String of string
            | Object of value array
@@ -171,36 +172,50 @@ type state = { mutable pc : int;
                global : value array;
                mutable trapSp : int; }
 
-
-let rec string_of_value = function
+let rec string_of_value v =
+  let rec string_of_list l =
+    match l with
+    | [] -> ""
+    | [x] -> string_of_value x
+    | x::xs -> Format.asprintf "%s, %s" (string_of_value x) (string_of_list xs)
+  in
+  let string_of_array a = string_of_list (Array.to_list a) in
+  match v with
+  | Unit -> "()"
   | Dummy -> "?"
   | String s -> "\""^s^"\""
   | Int v -> string_of_int v
   | Float f -> string_of_float f
   | Ptr x -> "@"^string_of_int x
   | Object e ->
-    let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") "" e) in
-    let s = String.sub s 0 (max 0 (String.length s -1)) in
-    "("^s^")"
+    let s = string_of_array e in
+    Format.asprintf "(%s)" s
   | Block (tag,b) ->
-    let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") ":" b) in
-    let s = String.sub s 0 (max 0 (String.length s -1)) in
-    "["^(string_of_int tag)^s^"]"
+    begin
+      match Array.length b with
+      | 0 -> Format.asprintf "[%d]" tag
+      | _ ->
+        let s = string_of_array b in
+        Format.asprintf "[%d : %s]" tag s
+    end
   | Closure (ptr,env) ->
-    let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") ":: " env) in
-    let s = String.sub s 0 (max 0 (String.length s -1)) in
-    "{"^(string_of_value ptr)^s^"}"
+    begin
+    match Array.length env with
+      0 -> Format.asprintf "{%s}" (string_of_value ptr)
+      | _ -> let s = string_of_array env in
+        Format.asprintf "{%s: %s}" (string_of_value ptr) s
+  end
   | Closure_rec (ptr,t,env,i) ->
-    let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") "-" env) in
-    let s = String.sub s 0 (max 0 (String.length s -1)) in
-    "<"^(string_of_value ptr)^"("^(string_of_int i)^")"^s^">"
+    let s = string_of_array env in
+    Format.asprintf "<%s (%d) %s>" (string_of_value ptr) i s
+
 
 let new_state data = { pc = 0;
-                     acc = Dummy;
-                     stack = Mlstack.create ();
-                     extraArgs = 0;
-                     env = Block (0,[| |]) ;
-                     global = data;
+                       acc = Unit;
+                       stack = Mlstack.create ();
+                       extraArgs = 0;
+                       env = Unit;
+                       global = data;
                        trapSp = 0 }
 
 let print_state state level t =

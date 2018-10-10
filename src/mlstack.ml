@@ -58,10 +58,15 @@ let fold_left f init s =
   !acc
 
 let to_string s f =
-  let str = ref "" in
-  for i = s.size -1 downto 0  do
-    let x = s.tab.(i) in
-    str := !str^(string_of_int (s.size -1 -i))^":"^(f x)^" ,\n";
-  done;
-  str:= String.sub !str 0 (max 0 (String.length !str -3));
-  "[|\n"^(!str)^"\n|]\n<size="^(string_of_int s.size)^">"
+  let rec string_of_list i l =
+      match l with
+      | [] -> ""
+      | [x] -> Format.asprintf "\t %d \t %s\n" i (f x)
+      | x::xs ->
+        if i = length s then Format.asprintf "\t %d \t %s\n" i (f x)
+        else
+          Format.asprintf "\t %d \t %s,\n%s" i (f x) (string_of_list (i+1) xs)
+  in
+  let string_of_array a = string_of_list 0 (Array.to_list a) in
+  let str = string_of_array s.tab in
+  Format.asprintf "[\n%s]<size=%d>" str s.size
