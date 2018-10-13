@@ -187,7 +187,7 @@ let rec string_of_value = function
     let s = String.sub s 0 (max 0 (String.length s -1)) in
     "["^(string_of_int tag)^s^"]"
   | Closure (ptr,env) ->
-    let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") ":" env) in
+    let s = (Array.fold_left (fun acc x -> acc^(string_of_value x)^",") ":: " env) in
     let s = String.sub s 0 (max 0 (String.length s -1)) in
     "{"^(string_of_value ptr)^s^"}"
   | Closure_rec (ptr,t,env,i) ->

@@ -245,6 +245,7 @@ let interp_loop_0 level bytecode state prims =
       let extraArgs = state.extraArgs - n in
       interp_loop level { next with extraArgs = extraArgs }
     else
+      (* failwith "alloc"; *)
       let a = Array.make (state.extraArgs + 2) (state.acc) in
       for i = 1 to state.extraArgs + 1 do
         a.(i) <- Mlstack.pop state.stack
