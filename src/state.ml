@@ -219,7 +219,7 @@ let new_state data = { pc = 0;
                        trapSp = 0 }
 
 let print_state state level t =
-  Printf.printf
+  Format.fprintf Format.std_formatter
     "stack = %s
 env = %s
 acc= %s

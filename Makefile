@@ -1,7 +1,6 @@
-SRCS     := src/mlstack.ml src/state.ml src/intrp.ml src/cycles.ml src/bytecrawler.ml
+SRCS     := mlstack.ml state.ml intrp.ml cycles.ml bytecrawler.ml
 OPAMDIR   := $(shell opam config var lib)
-TESTS	 := $(wildcard test*.ml)
-TARGETS  := bin/bytecrawler
+TARGET  := bin/bytecrawler
 FLAGS    := -I +../obytelib -I src
 OCAMLLIB := $(shell ocamlfind printconf stdlib)
 OCAMLC   := ocamlc
@@ -9,9 +8,9 @@ PACKAGE := csv
 
 CMOFILES = $(SRCS:%.ml=%.cmo)
 
-all: $(TARGETS)
+all: $(TARGET)
 
-bin/bytecrawler:  $(CMOFILES)
+$(TARGET) : $(addprefix src/,$(SRCS))
 	ocamlfind ocamlc -linkpkg -package $(PACKAGE) $(FLAGS) obytelib.cma  $+ -o $@
 
 %.cmo: %.ml %.cmi
@@ -23,31 +22,10 @@ bin/bytecrawler:  $(CMOFILES)
 %.cmo: %.ml
 	ocamlfind ocamlc -package $(PACKAGE) $(FLAGS)  -c $*.ml
 
-
-
-pervasives.cmo : tests/pervasive.ml
-	@cd tests && ocamlc -c -nopervasives pervasive.ml
-
-tests/test.byte : tests/test.ml tests/pervasive.ml tests/prims.c
-	cd tests && gcc -c -fPIC -I $(OCAMLLIB) prims.c -o prims.o \
-	&& ocamlc -nopervasives -custom prims.o pervasive.ml test.ml -o test.byte \
-	&& ocamlclean test.byte -o test.byte
-
-interp : bytecrawler tests/test.byte
-	./bytecrawler -i tests/test.byte
-
-
-test : ./bytecrawler
-	cd tests && make
-
-
 clean:
 	rm -f .depend
-	rm -f `find . -name "*.o"`
-	rm -f `find . -name "*.a"`
-	rm -f `find . -name "*.cm*"`
-	rm -f `find . -name "*~"`
-	rm -r ./bin/
+	find . -name "*.cm*" -delete
+	rm -f bin/*
 
 
 .PHONY: bytecrawler clean
