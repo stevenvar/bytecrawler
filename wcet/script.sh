@@ -1,7 +1,7 @@
 #!/bin/bash
 
 MMCU="atmega2560"
-CFLAGS="-I /usr/local/include/omicrob/vm -mmcu=$MMCU -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=16 -gdwarf-3 -g3 -O0 -w -fno-exceptions"
+CFLAGS="-I /usr/local/include/omicrob/vm -mmcu=$MMCU -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=16 -gdwarf-3 -g3 -O1 -w -fno-exceptions"
 LFLAGS="-Wl,-Os -Wl,--gc-sections"
 rm -f "cyc.csv"
 mkdir tmp

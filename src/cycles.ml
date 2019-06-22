@@ -24,9 +24,10 @@ let cycles inst switch nbloops =
         | Some x -> "_"^(string_of_int x) in
       let nb = try List.assoc ((string_of_instr inst)^suffix) !cyc with
           Not_found ->
-          Format.fprintf Format.std_formatter "Not found : %s \n" ((string_of_instr inst)^suffix) ;
-          try List.assoc ((string_of_instr inst)^"_4B"^suffix) !cyc with
-            Not_found -> List.assoc ((string_of_instr inst)^"_2B"^suffix) !cyc
+                 try List.assoc ((string_of_instr inst)^"_4B"^suffix) !cyc with
+                   Not_found -> try List.assoc ((string_of_instr inst)^"_2B"^suffix) !cyc with
+                                  Not_found ->  Format.fprintf Format.std_formatter "Not found : %s \n" ((string_of_instr inst)) ;
+                                                failwith "?"
       in
       Printf.printf "%s %i \n" ((string_of_instr inst)^suffix) nb;
       if nb = -1 then (
@@ -34,7 +35,14 @@ let cycles inst switch nbloops =
       else nb)
 
 
+let level = ref 0
+
 let cost instr nb start =
+  let print_tabs () =
+    for i = 1 to !level do
+      Printf.printf "\t";
+    done
+  in
   if not start then 0 else (
   match instr with
     | C_CALL1 _ -> 0
@@ -46,18 +54,20 @@ let cost instr nb start =
          let name = (string_of_instr instr)^suffix in
          let nb = try List.assoc name !cyc
                   with Not_found ->
-                    List.assoc ((string_of_instr instr)^"_4B"^suffix) !cyc
+                    try List.assoc ((string_of_instr instr)^"_4B"^suffix) !cyc with
+                      Not_found -> try List.assoc ((string_of_instr instr)^"_2B"^suffix) !cyc with
+                                     Not_found ->  Format.fprintf Format.std_formatter "Not found : %s \n" ((string_of_instr instr)) ;
+                                                   failwith "?"
          in
-         Printf.printf "%s %i \n" name nb; nb)
-         (* print_endline name; nb) *)
-         (* if nb = -1 then ( *)
-           (* raise Unsupported) *)
-         (* else nb) *)
+         print_tabs (); Printf.printf "%s - (%i cycles) \n" name nb;
+         if nb = -1 then (
+           raise Unsupported)
+         else nb)
 
 
 let params instr =
   match instr with
-  | GRAB n -> Some n
+  (* | GRAB n -> Some n *)
   | CLOSURE (n,ptr) -> Some n
   | _ -> None
 
@@ -484,8 +494,10 @@ let rec eval bytecode primitives state start =
            (* print_string "end of else branch \n"; *)
            let stack = Mlstack.load state.stack in
            print_string "begin of then branch \n";
+           incr level;
            let p1 = eval bytecode primitives {next with pc = ptr} start in
            print_string "end of then branch \n";
+           decr level;
            Mlstack.store state.stack stack;
            print_string "begin of else branch \n";
            let p2 = eval bytecode primitives next start in

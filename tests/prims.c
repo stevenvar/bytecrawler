@@ -11,3 +11,7 @@ value end_loop ()
 {
   return Val_unit;
 }
+
+value rand_bool (){
+  return Val_int(1);
+}

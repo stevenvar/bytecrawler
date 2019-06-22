@@ -12,6 +12,7 @@
 #include "fail.h"
 
 
+
 /******************************************************************************/
 
 /*
@@ -61,14 +62,43 @@ value* heap_ptr;
 #define OCAML_NO_FLASH_HEAP 1
 #define OCAML_NO_FLASH_GLOBALS 1
 
+#define OCAML_Division_by_zero     Val_static_block(&ocaml_ram_heap[25])
+#define OCAML_Stack_overflow       Val_static_block(&ocaml_ram_heap[34])
+#define OCAML_Out_of_memory       Val_static_block(&ocaml_ram_heap[32])
+
+
 #define is_in_ram(x) 1
 
+void debug_blink_error(){
+
+}
+
+/* jmp_buf caml_exception_jmp_buf; */
+
+value acc;
+
+void caml_raise(value v) {
+  acc = v;
+  /* exit(0); */
+  /* longjmp(caml_exception_jmp_buf, 1); */
+}
+
+/******************************************************************************/
+
+void caml_raise_out_of_memory(void) {
+  caml_raise(OCAML_Out_of_memory);
+}
+
 void caml_raise_stack_overflow(void) {
-  return;
+  caml_raise(OCAML_Stack_overflow);
+}
+
+void caml_raise_division_by_zero(void) {
+  caml_raise(OCAML_Division_by_zero);
 }
 
 
-value acc;
+
 value env;
 code_t pc;
 value *sp;
@@ -279,7 +309,7 @@ static inline void interp_init(void) {
   int opcode;
 
   /* if (setjmp(caml_exception_jmp_buf)) { */
-  /*   goto ocaml_raise; */
+    /* goto ocaml_raise; */
   /* } */
 
   /* while (1) { */
@@ -396,6 +426,15 @@ static inline void interp_init(void) {
 #ifdef OCAML_PUSH
     case OCAML_PUSH : {
       TRACE_INSTRUCTION("PUSH");
+      push(acc);
+      break;
+    }
+#endif
+
+
+#ifdef OCAML_PUSHACC0
+    case OCAML_PUSHACC0 : {
+      TRACE_INSTRUCTION("PUSHACC0");
       push(acc);
       break;
     }
