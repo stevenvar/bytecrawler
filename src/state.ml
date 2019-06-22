@@ -35,7 +35,7 @@ let string_of_instr = function
   | PUSHENVACC3               ->  "PUSHENVACC3"
   | PUSHENVACC4               ->  "PUSHENVACC4"
   | PUSHENVACC n              ->  "PUSHENVACC"
-  | PUSH_RETADDR ptr          ->  "PUSH_RETADDR"
+  | PUSH_RETADDR ptr          ->  "PUSHRETADDR"
   | APPLY n                   ->  "APPLY"
   | APPLY1                    ->  "APPLY1"
   | APPLY2                    ->  "APPLY2"

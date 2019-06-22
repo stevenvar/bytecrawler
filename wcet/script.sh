@@ -1,7 +1,7 @@
 #!/bin/bash
 
-MMCU="atmega328p"
-CFLAGS="-mmcu=$MMCU -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=32 -gdwarf-3 -g3 -O1 -w -fno-exceptions"
+MMCU="atmega2560"
+CFLAGS="-I /usr/local/include/omicrob/vm -mmcu=$MMCU -DF_CPU=16000000L -DOCAML_VIRTUAL_ARCH=16 -gdwarf-3 -g3 -O0 -w -fno-exceptions"
 LFLAGS="-Wl,-Os -Wl,--gc-sections"
 rm -f "cyc.csv"
 mkdir tmp
@@ -13,9 +13,8 @@ do
     sed -e '1 i\
 #define OCAML_'$INST' 1
 ' interp.c > tmp/wcet_$INST.c
-    cp -r lib tmp/lib
     sed -i ".bak" -e 's/switch(opcode)/switch(OCAML_'$INST')/g' tmp/wcet_$INST.c
-    avr-gcc $CFLAGS -I lib/*.h lib/*.c tmp/wcet_$INST.c -o tmp/wcet_$INST.avr
+    avr-gcc $CFLAGS  tmp/wcet_$INST.c -o tmp/wcet_$INST.avr
     if [[ $NLOOPS -eq "0" ]]; then
 	BNT=`boundt_avr -device=$MMCU tmp/wcet_$INST.avr interp 2>&1`
 	if echo $BNT | grep -q 'Error' ; then

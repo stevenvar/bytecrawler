@@ -16,7 +16,8 @@ let cyc =
 let cycles inst switch nbloops =
   if not switch then 0 else (
     match inst with
-    | C_CALL1 _ -> 0
+    (* | C_CALL1 _ -> 0 *)
+    | C_CALL1 x -> (Printf.printf "CCALL : %d" x); raise (Unsupported)
     | _ ->
       let suffix = match nbloops with
           None -> ""
@@ -24,7 +25,8 @@ let cycles inst switch nbloops =
       let nb = try List.assoc ((string_of_instr inst)^suffix) !cyc with
           Not_found ->
           Format.fprintf Format.std_formatter "Not found : %s \n" ((string_of_instr inst)^suffix) ;
-          List.assoc ((string_of_instr inst)^"_4B"^suffix) !cyc
+                 try List.assoc ((string_of_instr inst)^"_4B"^suffix) !cyc with
+                   Not_found -> List.assoc ((string_of_instr inst)^"_2B"^suffix) !cyc
       in
       Format.fprintf Format.std_formatter "%s %i \n" ((string_of_instr inst)^suffix) nb;
       if nb = -1 then (
@@ -237,7 +239,7 @@ let rec count_loop level state switch cpt =
   | GRAB n ->
     if state.extraArgs >= n then
       let extraArgs = state.extraArgs - n in
-      count_loop level { next with extraArgs = extraArgs } switch (cpt + cycles inst switch (Some n))
+      count_loop level { next with extraArgs = extraArgs } switch (cpt + cycles inst switch (None))
     else
       let a = Array.make (state.extraArgs + 2) (state.acc) in
       for i = 1 to state.extraArgs + 1 do

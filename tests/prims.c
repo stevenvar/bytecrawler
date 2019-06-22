@@ -1,11 +1,13 @@
-#include <caml/mlvalues.h>
+/* #include <caml/values.h> */
+#define OCAML_VIRTUAL_ARCH 16
+#include "/usr/local/include/omicrob/vm/values.h"
 
-CAMLprim value begin_loop()
+value begin_loop()
 {
   return Val_unit;
 }
 
-CAMLprim value end_loop ()
+value end_loop ()
 {
   return Val_unit;
 }
