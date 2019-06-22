@@ -25,7 +25,7 @@ let field blk n =
 let set_field blk n x =
   match blk with
   | Block (_,tab) -> tab.(n) <- x
-  | _ -> failwith "not an environment"
+  | _ -> failwith "not a block"
 
 let offsetclosure blk n =
   match blk with
