@@ -13,6 +13,11 @@ let cyc =
   let csv = List.map (fun l -> match l with [x;y] -> (x, int_of_string y) | _ -> raise (Invalid_argument "csv")) csv in
   ref csv
 
+let prims =
+  let csv = Csv.load ~separator:';' "wcet/primitives.csv" in
+  let csv = List.map (fun l -> match l with [x;y] -> (x, int_of_string y) | _ -> raise (Invalid_argument "csv")) csv in
+  ref csv
+
 let cycles inst switch nbloops =
   if not switch then 0 else (
     match inst with
@@ -37,32 +42,40 @@ let cycles inst switch nbloops =
 
 let level = ref 0
 
-let cost instr nb start =
+let cost instr primitives nb start =
   let print_tabs () =
     for i = 1 to !level do
       Printf.printf "\t";
     done
   in
   if not start then 0 else (
-  match instr with
-    | C_CALL1 _ -> 0
+    match instr with
+    | C_CALL1 i ->
+       let name = primitives.(i) in
+       begin try
+           let n = List.assoc name !prims in
+           print_tabs (); Printf.printf "Call to %s : %d\n" name n;
+           n
+             with Not_found ->
+               failwith ("I don't know the cost of primitive "^name)
+       end
     | _ ->
-         let suffix =
-           match nb with
-           | None -> ""
-           | Some x -> "_"^(string_of_int x) in
-         let name = (string_of_instr instr)^suffix in
-         let nb = try List.assoc name !cyc
-                  with Not_found ->
-                    try List.assoc ((string_of_instr instr)^"_4B"^suffix) !cyc with
-                      Not_found -> try List.assoc ((string_of_instr instr)^"_2B"^suffix) !cyc with
-                                     Not_found ->  Format.fprintf Format.std_formatter "Not found : %s \n" ((string_of_instr instr)) ;
-                                                   failwith "?"
-         in
-         print_tabs (); Printf.printf "%s - (%i cycles) \n" name nb;
-         if nb = -1 then (
-           raise Unsupported)
-         else nb)
+       let suffix =
+         match nb with
+         | None -> ""
+         | Some x -> "_"^(string_of_int x) in
+       let name = (string_of_instr instr)^suffix in
+       let nb = try List.assoc name !cyc
+                with Not_found ->
+                  try List.assoc ((string_of_instr instr)^"_4B"^suffix) !cyc with
+                    Not_found -> try List.assoc ((string_of_instr instr)^"_2B"^suffix) !cyc with
+                                   Not_found ->  Format.fprintf Format.std_formatter "Not found : %s \n" ((string_of_instr instr)) ;
+                                                 failwith "?"
+       in
+       print_tabs (); Printf.printf "%s - (%i cycles) \n" name nb;
+       if nb = -1 then (
+         raise Unsupported)
+       else nb)
 
 
 let params instr =
@@ -75,7 +88,7 @@ let rec eval bytecode primitives state start =
   let instr = bytecode.(state.pc) in
   let next = { state with pc = state.pc + 1 } in
   (* print_state state 0 bytecode; *)
-  let c = cost instr (params instr) start in
+  let c = cost instr primitives (params instr) start in
   c +
    match instr with
     | ACC0 -> let i = Mlstack.peek state.stack 0 in

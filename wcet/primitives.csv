@@ -1,0 +1,3 @@
+begin_loop ; 0
+end_loop ; 0
+rand_bool; 128
