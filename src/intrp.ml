@@ -429,11 +429,11 @@ let interp level bytecode state prims =
       ignore @@ Mlstack.pop state.stack;
       let acc = Dummy in
       interp_loop level { next with acc = acc }
-    | GETSTRINGCHAR             ->
+    | GETBYTESCHAR             ->
       ignore @@ Mlstack.pop state.stack;
       let acc = Dummy in
       interp_loop level { next with acc = acc }
-    | SETSTRINGCHAR             ->
+    | SETBYTESCHAR             ->
       ignore @@ Mlstack.pop state.stack;
       ignore @@ Mlstack.pop state.stack;
       let acc = Dummy in

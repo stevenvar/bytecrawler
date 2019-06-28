@@ -1,7 +1,7 @@
 (* let%node count reset ~return:cpt =
  *   cpt = 0 ->> if reset then 0 else (cpt + 1) *)
 
-(* open Avr *)
+
 
 open Wcet
 
@@ -11,8 +11,13 @@ type ('a, 'b) count_state =
     mutable count_out_cpt: 'b }
 
 
+
+
 (* Input functions *)
 let input_count_r () = (digital_read PIN10 = HIGH)
+
+open Avr
+
 (* Output function *)
 let output_count cpt  = ()
 
@@ -28,11 +33,33 @@ let count_step state r =
   state.count_out_cpt <- cpt; state.count_pre_cpt <- pre_cpt; ()
 
 let () =
+  (* let millis_cost = ref (millis ()) in
+   * for i = 1 to 10000 do
+   *   ignore (millis ());
+   * done;
+   * millis_cost := (millis ()) - !millis_cost;
+   * millis_cost := !millis_cost / 500;
+   * Serial.write_string "millis cost =";
+   * Serial.write_int !millis_cost;
+   *)
+  (*  let loop_cost = ref (millis ()) in
+   * for i = 1 to 10000 do
+   *   ()
+   * done;
+   * loop_cost := millis () - !loop_cost;
+   * Serial.write_string "for cost =";
+   * Serial.write_int !loop_cost;
+   *)
+
   let _st = count_alloc () in
-  while true do
-   begin_loop ();
-   let r = input_count_r () in
-   count_step _st r;
-   output_count _st.count_out_cpt;
-   end_loop ()
-   done
+
+  let n = millis () in
+    begin_loop ();
+    (* for i = 1 to 1000 do *)
+      let reset =  input_count_r () in
+      count_step _st reset;
+      output_count _st.count_out_cpt;
+    (* done; *)
+    end_loop ();
+  let n' = millis () in
+  Serial.write_int (n'-n)

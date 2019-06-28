@@ -1,4 +1,4 @@
 
-subprogram "interp"
+subprogram "main"
 	   loop repeats XXX times; end loop;
-end	"interp";
+end	"main";
