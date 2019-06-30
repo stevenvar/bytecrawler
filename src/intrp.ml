@@ -41,6 +41,8 @@ let interp level bytecode state prims =
     if Mlstack.length state.stack > !max_stack then max_stack := Mlstack.length state.stack;
     (* if State.heap_size state > !max_heap then max_heap := State.heap_size state; *)
     print_state state level bytecode;
+    (* print_tabs (); *)
+    (* print_endline (Instr.to_string inst); *)
     (* let _ = read_line () in *)
     match inst with
     | ACC0 -> let i = Mlstack.peek state.stack 0 in
@@ -327,7 +329,7 @@ let interp level bytecode state prims =
       interp_loop level { next with acc = acc }
     | SETGLOBAL n               ->
       state.global.(n) <- state.acc ;
-      interp_loop level { next with acc = Dummy }
+      interp_loop level next
     | ATOM0                     ->
       let blk = Block (0, [||]) in
       interp_loop level {next with acc = blk }
@@ -443,14 +445,22 @@ let interp level bytecode state prims =
       begin
         match state.acc with
         | Dummy ->
-          begin
-            try
-              interp_loop (level+1) { next with pc = ptr };
-            with _ -> ();
-              try
-                interp_loop level next
-              with _ -> ()
-          end
+           let stack = Mlstack.load state.stack in
+           print_string "begin of then branch \n";
+           interp_loop (level +1)  {next with pc = ptr};
+           print_string "end of then branch \n";
+           Mlstack.store state.stack stack;
+           print_string "begin of else branch \n";
+           interp_loop (level +1)  next;
+           print_string "end of else branch \n";
+          (* begin
+           *   try
+           *     interp_loop (level+1) { next with pc = ptr };
+           *   with _ -> ();
+           *     try
+           *       interp_loop level next
+           *     with _ -> ()
+           * end *)
         | Int 0 -> interp_loop level next
         | _ -> interp_loop (level+1) { next with pc = ptr }
       end
@@ -458,13 +468,21 @@ let interp level bytecode state prims =
       begin
         match state.acc with
         | Dummy ->
-          begin
-            try
-              interp_loop (level+1) { next with pc = ptr }
-            with _ -> ();
-              try
-                interp_loop level next
-              with _ -> ();
+           begin
+             let stack = Mlstack.load state.stack in
+             print_string "begin of then branch \n";
+             try interp_loop (level +1)  {next with pc = ptr} with _ -> ();
+             print_string "end of then branch \n";
+             Mlstack.store state.stack stack;
+             print_string "begin of else branch \n";
+             try interp_loop (level +1)  next with _ -> ();
+             print_string "end of else branch \n";
+            (* try
+             *   interp_loop (level+1) { next with pc = ptr }
+             * with _ -> ();
+             *   try
+             *     interp_loop level next
+             *   with _ -> (); *)
           end
         | Int 0 -> interp_loop (level+1) { next with pc = ptr }
         | _ -> interp_loop level next
@@ -506,28 +524,29 @@ let interp level bytecode state prims =
         Format.printf " >> ENDING LOOP << \n";
       interp_loop level { next with acc = acc}
     | C_CALL2 idx ->
-      let peek =  Mlstack.peek state.stack in
-      begin
-        match state.acc, peek 0 with
-          Float f, Float f2 ->
-          (* Format.printf "acc = %f / peek 0 = %F, %b diff = %F \n" f f2 (f >= f2) (f2 -. f); *)
-          let acc =
-            (* begin *)
-            (* match idx with *)
-            (* 1 -> Float (f *. f2) *)
-            (* | 2 -> Int ( if f2 -. f < 0.0001 then 1 else 0 ) *)
-            (* | 3 -> Float (f +. f2) *)
-            (* | 4 -> Float (f -. f2) *)
-            (* | 5 -> Float (f /. f2) *)
-            (* | _ -> *)
-            Dummy
-            (* end *)
-          in
-          ignore @@ Mlstack.pop state.stack;
-          interp_loop level { next with acc }
-        | _ -> ignore @@ Mlstack.pop state.stack;
+      (* let peek =  Mlstack.peek state.stack in *)
+
+      (*   match state.acc, peek 0 with
+       *     Float f, Float f2 ->
+       *     (\* Format.printf "acc = %f / peek 0 = %F, %b diff = %F \n" f f2 (f >= f2) (f2 -. f); *\)
+       *     let acc =
+       *       (\* begin *\)
+       *       (\* match idx with *\)
+       *       (\* 1 -> Float (f *. f2) *\)
+       *       (\* | 2 -> Int ( if f2 -. f < 0.0001 then 1 else 0 ) *\)
+       *       (\* | 3 -> Float (f +. f2) *\)
+       *       (\* | 4 -> Float (f -. f2) *\)
+       *       (\* | 5 -> Float (f /. f2) *\)
+       *       (\* | _ -> *\)
+       *       Dummy
+       *       (\* end *\)
+       *     in
+       *     ignore @@ Mlstack.pop state.stack;
+       *     interp_loop level { next with acc } *)
+    (* | _ -> *)
+       ignore @@ Mlstack.pop state.stack;
           interp_loop level { next with acc = Dummy }
-      end
+      (* end *)
     | C_CALL3 idx ->
       let acc = Dummy in
       ignore @@ Mlstack.pop state.stack;
@@ -716,8 +735,16 @@ let interp level bytecode state prims =
       begin
         match state.acc with
         | Dummy ->
-          interp_loop (level+1) { next with pc = ptr };
-          interp_loop level next
+           begin
+             let stack = Mlstack.load state.stack in
+             print_string "begin of then branch \n";
+             try interp_loop (level +1)  {next with pc = ptr} with _ -> ();
+             print_string "end of then branch \n";
+             Mlstack.store state.stack stack;
+             print_string "begin of else branch \n";
+             try interp_loop (level +1)  next with _ -> ();
+             print_string "end of else branch \n";
+           end
         | Int v -> if n > v then
             interp_loop (level+1) { next with pc = ptr }
           else

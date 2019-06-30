@@ -37,14 +37,15 @@ let string_param p =
   | None -> "_"
   | Some d -> string_of_int d
 
+let print_tabs () =
+  for i = 1 to !level do
+    Printf.printf "\t";
+  done
+
+
 let cost instr primitives nb start param =
-  let print_tabs () =
-    for i = 1 to !level do
-      Printf.printf "\t";
-    done
-  in
-  if not start then 0 else (
-    match instr with
+    if not start then 0 else (
+           match instr with
     | C_CALL1 i | C_CALL2 i | C_CALL3 i ->
        let name = primitives.(i) in
        begin try
@@ -68,7 +69,7 @@ let cost instr primitives nb start param =
                       else if p >= -0x8000 && p < 0x8000 then List.assoc ((string_of_instr instr)^"_2B"^suffix) !cyc
                       else List.assoc ((string_of_instr instr)^"_4B"^suffix) !cyc
                  with Not_found ->  Format.fprintf Format.std_formatter "Not found : %s %s \n"  ((string_of_instr instr)) (string_param param);
-                                    failwith "?")
+                                    failwith "!?")
        in
        print_tabs (); Printf.printf "%s - (%i cycles) \n" name nb;
        if nb = -1 then (
@@ -82,10 +83,44 @@ let params instr =
   (* | CLOSURE (n,ptr) -> Some n *)
   | _ -> None
 
+let eval_primitive_1 =
+  let cpt = ref 0 in
+  fun name param ->
+  Printf.printf "eval primitive %s with param = %s\n" name (string_of_value param);
+  match name with
+  | "caml_fresh_oo_id" ->
+     let n = !cpt in
+     incr cpt;
+     Int n
+  | "caml_obj_dup" ->
+     begin match param with
+     | Block (n,v) -> Block (n, Array.copy v)
+     | _ -> param
+     end
+  | _ -> Dummy
+
+let eval_primitive_2 name param1 param2 =
+  Printf.printf "eval primitive %s with param1 = %s , param2 = %s \n" name (string_of_value param1)
+    (string_of_value param2);
+  match name with
+  | "caml_make_vect" -> begin
+      match param1 with
+      | Int n -> Block(n, Array.make n param2)
+      | _ -> Dummy
+    end
+  | "caml_array_get_addr" | "caml_array_unsafe_get" -> begin
+     match param1, param2 with
+     | Block (n,v), Int d -> v.(d)
+     | _ -> Dummy
+    end
+  | _ -> Dummy
+
 let rec eval bytecode primitives state start =
   let instr = bytecode.(state.pc) in
   let next = { state with pc = state.pc + 1 } in
-  (* print_state state 0 bytecode; *)
+  (* print_state state !level bytecode; *)
+  (* print_tabs (); *)
+  (* print_endline (Instr.to_string instr); *)
   let c = cost instr primitives (params instr) start in
    match instr with
     | ACC0 -> let i = Mlstack.peek state.stack 0 in
@@ -147,7 +182,7 @@ let rec eval bytecode primitives state start =
     | POP n -> Mlstack.popn state.stack n;
       c None + eval bytecode primitives next start
     | ASSIGN n -> Mlstack.set state.stack n state.acc;
-      c None + eval bytecode primitives { next with acc = Dummy } start
+      c None + eval bytecode primitives next start
     | ENVACC1                   ->
       c None + eval bytecode primitives { next with acc = field state.env 1 } start
     | ENVACC2                   ->
@@ -178,7 +213,7 @@ let rec eval bytecode primitives state start =
       Mlstack.push state.stack (Int state.extraArgs);
       Mlstack.push state.stack state.env;
       Mlstack.push state.stack (Ptr ptr);
-      c None + eval bytecode primitives next start
+      c (Some ptr) + eval bytecode primitives next start
     | APPLY n ->
       c None + eval bytecode primitives { next with pc = ptr_of_value state.acc ;
                        env = state.acc ;
@@ -235,7 +270,7 @@ let rec eval bytecode primitives state start =
       c None + eval bytecode primitives { next with pc = ptr_of_value state.acc ;
                                     env = env} start
     | APPTERM2 n ->
-      Printf.printf "APPTERM2 %d" n;
+      (* Printf.printf "APPTERM2 %d" n; *)
       let arg1 = Mlstack.peek state.stack 0 in
       let arg2 = Mlstack.peek state.stack 1 in
       Mlstack.popn state.stack n;
@@ -371,7 +406,7 @@ let rec eval bytecode primitives state start =
       c (Some n ) + eval bytecode primitives { next with acc = acc } start
     | SETGLOBAL n               ->
       state.global.(n) <- state.acc ;
-      c (Some n) + eval bytecode primitives { next with acc = Dummy } start
+      c (Some n) + eval bytecode primitives next start
     | ATOM0                     ->
       let blk = Block (0, [||]) in
       c None + eval bytecode primitives {next with acc = blk } start
@@ -462,16 +497,22 @@ let rec eval bytecode primitives state start =
       let acc = Dummy in
       c None + eval bytecode primitives { next with acc = acc } start
     | VECTLENGTH                ->
-      let acc = Dummy in
+      let acc = match state.acc with Block(n,v) -> Int n | _ -> Dummy  in
       c None + eval bytecode primitives { next with acc = acc } start
     | GETVECTITEM               ->
-      ignore @@ Mlstack.pop state.stack;
-      let acc = Dummy in
+       let param = Mlstack.pop state.stack in
+       let acc = match state.acc, param with
+         | Block(n,v), Int d  -> v.(d)
+         | _ -> Dummy
+       in
       c None + eval bytecode primitives { next with acc = acc } start
     | SETVECTITEM               ->
-      ignore @@ Mlstack.pop state.stack;
-      ignore @@ Mlstack.pop state.stack;
-      let acc = Dummy in
+      let param1 =  Mlstack.pop state.stack in
+      let param2 =  Mlstack.pop state.stack in
+      let acc = match state.acc, param1 with
+        | Block (n,v) , Int d1 -> (v.(d1) <- param2); Unit
+        | _ -> Dummy
+      in
       c None + eval bytecode primitives { next with acc = acc } start
     | GETBYTESCHAR             ->
       ignore @@ Mlstack.pop state.stack;
@@ -486,12 +527,19 @@ let rec eval bytecode primitives state start =
     | BRANCHIF ptr              ->
       begin
         match state.acc with
-        | Int 0 -> c (Some ptr)  + eval bytecode primitives next start
+        | Int 0 -> c (Some ptr) + eval bytecode primitives next start
         | Int _ -> c (Some ptr) + eval bytecode primitives { next with pc = ptr } start
         | Dummy ->
-           let p1 = try (c (Some ptr) + eval bytecode primitives {next with pc = ptr} start) with _ -> 0 in
-           let p2 = try (c (Some ptr) + eval bytecode primitives next start) with _ -> 0 in
-           max p1 p2
+           let stack = Mlstack.load state.stack in
+           print_string "begin of then branch \n";
+           incr level;
+           let p1 =  (eval bytecode primitives {next with pc = ptr} start) in
+           print_string "end of then branch \n";
+           decr level;
+           Mlstack.store state.stack stack;
+           print_string "begin of else branch \n";
+           let p2 = eval bytecode primitives next start in
+           c (Some ptr) + max p1 p2
         | _ -> failwith "BRANCHIF : not an int/?"
       end
     | BRANCHIFNOT ptr           ->
@@ -501,14 +549,14 @@ let rec eval bytecode primitives state start =
            let stack = Mlstack.load state.stack in
            print_string "begin of then branch \n";
            incr level;
-           let p1 = c (Some ptr) + eval bytecode primitives {next with pc = ptr} start in
+           let p1 = eval bytecode primitives {next with pc = ptr} start in
            print_string "end of then branch \n";
            decr level;
            Mlstack.store state.stack stack;
            print_string "begin of else branch \n";
-           let p2 = c (Some ptr) + eval bytecode primitives next start in
+           let p2 = eval bytecode primitives next start in
            print_string "end of else branch \n";
-           max p1 p2
+           c (Some ptr) +  max p1 p2
         | Int 0 -> c (Some ptr) + eval bytecode primitives { next with pc = ptr } start
         | _ -> c (Some ptr) + eval bytecode primitives next start
       end
@@ -516,15 +564,16 @@ let rec eval bytecode primitives state start =
       begin
         match state.acc with
         | Int v ->
-          c None + eval bytecode primitives { next with pc = ptrs.(v) } start
-        | Block (tag,b) ->  c None + eval bytecode primitives { next with pc = ptrs.(tag + (n land 0xFFFF)) } start
+          c (Some n) + eval bytecode primitives { next with pc = ptrs.(v) } start
+        | Block (tag,b) ->  c (Some n) + eval bytecode primitives { next with pc = ptrs.(tag + (n land 0xFFFF)) } start
         | _ -> failwith "?"
       end
     | BOOLNOT                   ->
       let acc = match state.acc with
         | Int 0 -> Int 1
         | Int 1 -> Int 0
-        | _ -> failwith "not a bool"
+        | Dummy -> Dummy
+        | _ -> print_state state 0 bytecode; failwith "not a bool"
       in
       c None + eval bytecode primitives { next with acc } start
     | PUSHTRAP ptr              ->
@@ -540,11 +589,11 @@ let rec eval bytecode primitives state start =
       ignore @@ Mlstack.pop state.stack;
       c None + eval bytecode primitives { next with trapSp = trapSp } start
     | C_CALL1 idx ->
-      let acc = Dummy in
+      let acc = eval_primitive_1 primitives.(idx) state.acc in
       if primitives.(idx) = "begin_loop" then
         begin
           Printf.printf " >> BEGINNING LOOP << \n";
-          c None +  List.assoc "begin_loop" !prims + eval bytecode primitives {next with acc} true
+          c None + eval bytecode primitives {next with acc} true
         end
       else if primitives.(idx) = "end_loop" then
         begin
@@ -554,9 +603,12 @@ let rec eval bytecode primitives state start =
       else
         c None + eval bytecode primitives {next with acc} start
     | C_CALL2 idx ->
-      let peek =  Mlstack.peek state.stack in
-      ignore @@ Mlstack.pop state.stack;
-          c None + eval bytecode primitives { next with acc = Dummy } start
+      (* let peek =  Mlstack.peek state.stack in *)
+       let name = primitives.(idx) in
+       let param1 = state.acc in
+       let param2 = Mlstack.pop state.stack in
+       let acc = eval_primitive_2 name param1 param2 in
+          c None + eval bytecode primitives { next with acc } start
     | C_CALL3 idx ->
       let acc = Dummy in
       ignore @@ Mlstack.pop state.stack;
@@ -694,6 +746,7 @@ let rec eval bytecode primitives state start =
       let acc = Dummy in
       c None + eval bytecode primitives { next with acc } start
     | BEQ (n, ptr)              ->
+       failwith "beq";
       begin
         match state.acc with
         | Dummy ->
@@ -709,15 +762,27 @@ let rec eval bytecode primitives state start =
       begin
         match state.acc with
         | Dummy ->
-          c None + eval bytecode primitives  { next with pc = ptr } start;
-          c None + eval bytecode primitives next start
+           let stack = Mlstack.load state.stack in
+           print_string "begin of then branch \n";
+           incr level;
+           let p1 = eval bytecode primitives {next with pc = ptr} start in
+           print_string "end of then branch \n";
+           decr level;
+           Mlstack.store state.stack stack;
+           print_string "begin of else branch \n";
+           let p2 = eval bytecode primitives next start in
+           print_string "end of else branch \n";
+           c (Some ptr) +  max p1 p2
+          (* c (Some ptr) + eval bytecode primitives  { next with pc = ptr } start; *)
+          (* c (Some ptr) + eval bytecode primitives next start *)
         | Int v -> if n <> v then
-            c None + eval bytecode primitives  { next with pc = ptr } start
+            c (Some ptr) + eval bytecode primitives  { next with pc = ptr } start
           else
-            c None + eval bytecode primitives next start
+            c (Some ptr) + eval bytecode primitives next start
         | _ -> failwith "wrong accumulator"
       end
     | BLTINT (n, ptr)           ->
+       failwith "bltint";
       begin
         match state.acc with
         | Dummy ->
@@ -730,30 +795,50 @@ let rec eval bytecode primitives state start =
         | _ -> failwith "wrong accumulator"
       end
     | BLEINT (n, ptr)           ->
-      begin
+       begin
         match state.acc with
         | Dummy ->
-          c None + eval bytecode primitives  { next with pc = ptr } start;
-          c None + eval bytecode primitives next start
+          let stack = Mlstack.load state.stack in
+           print_string "begin of then branch \n";
+           incr level;
+           let p1 = eval bytecode primitives {next with pc = ptr} start in
+           print_string "end of then branch \n";
+           decr level;
+           Mlstack.store state.stack stack;
+           print_string "begin of else branch \n";
+           let p2 = eval bytecode primitives next start in
+           print_string "end of else branch \n";
+           c (Some ptr) +  max p1 p2
         | Int v -> if n <= v then
-            c None + eval bytecode primitives  { next with pc = ptr } start
+            c (Some ptr) + eval bytecode primitives  { next with pc = ptr } start
           else
-            c None + eval bytecode primitives next start
+            c (Some ptr) + eval bytecode primitives next start
         | _ -> failwith "wrong accumulator"
       end
     | BGTINT (n, ptr)           ->
       begin
         match state.acc with
         | Dummy ->
-          c None + eval bytecode primitives  { next with pc = ptr } start;
-          c None + eval bytecode primitives next start
+
+          let stack = Mlstack.load state.stack in
+           print_string "begin of then branch \n";
+           incr level;
+           let p1 = eval bytecode primitives {next with pc = ptr} start in
+           print_string "end of then branch \n";
+           (* decr level; *)
+           Mlstack.store state.stack stack;
+           print_string "begin of else branch \n";
+           let p2 = eval bytecode primitives next start in
+           print_string "end of else branch \n";
+           c (Some n) +  max p1 p2
         | Int v -> if n > v then
-            c None + eval bytecode primitives  { next with pc = ptr } start
+            c (Some n) + eval bytecode primitives  { next with pc = ptr } start
           else
-            c None + eval bytecode primitives next start
+            c (Some n) + eval bytecode primitives next start
         | _ -> failwith "wrong accumulator"
       end
     | BGEINT (n, ptr) ->
+       failwith "bgeint";
       begin
         match state.acc with
         | Dummy ->
@@ -1487,6 +1572,9 @@ let count_cost f =
   let global = Array.map value_of_obytelib data in
   init_prims ();
   init_cyc ();
+  for i = 0 to Array.length primitives -1 do
+    Printf.printf "PRIM %d : %s\n" i primitives.(i);
+  done;
   let n = eval bytecode primitives (new_state global) false in
   Printf.printf "Cost : %d \n"  n;
   if !freq <> 0. then

@@ -1,3 +1,7 @@
 begin_loop ; 135
 end_loop ; 150
 rand_bool; 128
+caml_avr_read_bit; 186
+caml_avr_set_bit; 182
+caml_avr_clear_bit; 183
+caml_array_unsafe_get; 36
